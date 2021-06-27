@@ -11,7 +11,7 @@ import torch.utils.data as Data
 from sklearn.metrics import recall_score
 from tqdm import tqdm
 import os
-from feature_classifier.utils import create_model
+from feature_classifier.utils import create_model, create_dirs, remove_previous_checkpoints
 from feature_classifier.create_dataset import CreateDataset
 
 class FeatureClassifier():
@@ -25,17 +25,22 @@ class FeatureClassifier():
             self.set_seed()
             self.set_hyperparameters()
             self.dataset_path = os.path.join('.', 'datasets', 'eeg')
-            self.model_name = 'ResNet18'
-            self.feature = 'alcoholism'
+            self.model_name = 'ResNet18' # ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+            self.feature = 'alcoholism' # alcoholism, stimulus, id
             self.batch_size = 784
             self.learning_rate = 0.1
+            self.accuracy_best = np.NINF
+            self.loss_best = np.Inf
+            self.num_keep_best = 5
+            self.checkpoint_mode = 'accuracy' # accuracy, loss
+            self.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.feature, self.model_name)
             self.resume = False
             self.get_num_classes()
             self.create_dataloaders()
             create_model(self)
+            create_dirs(self)
             self.set_device()
             self.set_model_options()
-
 
     def create_dataloaders(self):
         # load the augmented dataset if we are using id as feature
@@ -111,6 +116,29 @@ class FeatureClassifier():
             self.optimizer.step()
         return loss.item()
 
+    def save_model(self, accuracy, loss):
+        if self.mode == 'val':
+            save_condition = False
+            if self.checkpoint_mode == 'accuracy':
+                if accuracy > self.accuracy_best:
+                    save_condition = True
+                    self.accuracy_best = accuracy
+            if self.checkpoint_mode == 'loss':
+                if loss < self.loss_best:
+                    save_condition = True
+                    self.loss_best = loss
+
+            if save_condition:
+                remove_previous_checkpoints(self)
+                save_path = os.path.join(self.checkpoint_path, f'{self.index_epoch+1}.pth')
+                save_dict = {'epoch': self.index_epoch + 1,
+                             'learning_rate': self.learning_rate,
+                             'state_dict': self.model.state_dict(),
+                             'optim_dict': self.optimizer.state_dict()
+                             }
+                torch.save(save_dict, save_path)
+                print(f'New best model saved at epoch: {self.index_epoch+1}')
+
     def forward_pass(self):
         # train
         if self.mode == 'train':
@@ -134,9 +162,7 @@ class FeatureClassifier():
             loss_epoch += loss_batch
             labels_pred = torch.argmax(labels_pred, dim=1)
             correct_batch = torch.sum(labels_pred == labels_real).item()
-            # correct_epoch += correct_batch
             length_batch = len(labels_real)
-            # num_samples += length_batch
 
             accuracy_batch = (correct_batch / length_batch)
             accuracy_list.append(accuracy_batch)
@@ -147,20 +173,18 @@ class FeatureClassifier():
                 sensitivity_list.append(sensitivity_batch)
                 specificity_list.append(specificity_batch)
 
-        # accuracy_epoch = 100 * (correct_epoch / num_samples)
         num_samples_epoch = len(accuracy_list)
         accuracy_epoch = 100 * (np.sum(accuracy_list) / num_samples_epoch)
         loss_epoch /= num_samples_epoch
 
         print(f'Epoch:\t[{self.index_epoch+1}/{self.num_epochs}]\t{self.mode.upper()} Loss:\t{loss_epoch:.3f}\tAccuracy:\t{accuracy_epoch:.3f} %\tCorrect:\t[{correct_epoch}/{num_samples}]', end='')
         if self.feature == 'alcoholism' and self.mode == 'val':
-            # sensitivity = recall_score(labels_real.cpu(), labels_pred.cpu(), pos_label=1) * 100.
-            # specificity = recall_score(labels_real.cpu(), labels_pred.cpu(), pos_label=0) * 100.
             sensitivity_epoch = (np.sum(sensitivity_list) / num_samples_epoch)
             specificity_epoch = (np.sum(specificity_list) / num_samples_epoch)
             print(f'\tSensitivity:\t{sensitivity_epoch:.3f} %\tSpecificity:\t{specificity_epoch:.3f} %')
         else:
             print()
+        self.save_model(accuracy_epoch, loss_epoch)
 
     def run(self):
         for index_epoch in range(self.start_epoch, self.num_epochs):
