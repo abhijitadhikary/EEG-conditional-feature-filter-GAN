@@ -13,9 +13,9 @@ from validation import Image_wise_autoencoders
 from validation import autoencoder_classification_stimulus
 from validation import autoencoder_classification_personal_identity
 
-from resnet import ResNet18
-from resnet import ResNet34
-from resnet import ResNet50
+from models.resnet import ResNet18
+from models.resnet import ResNet34
+from models.resnet import ResNet50
 
 import torch.backends.cudnn as cudnn
 import matplotlib.pyplot as plt 

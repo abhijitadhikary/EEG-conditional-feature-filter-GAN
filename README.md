@@ -67,7 +67,7 @@ python train.py --name cyclegan --resize_or_crop=None --loadSize=32 --fineSize=3
 - train the ResNet classifier
     - Select the ResNet model (ResNet18|ResNet34|ResNet50) and the classification task (alcoholism|stimulus|id) when training, for example:
 ```
-python3 resnet_classification_model.py --model ResNet18 --feature alcoholism
+python resnet_classification_model.py --model ResNet18 --feature alcoholism
 ```
 *The script above train a ResNet-18 model to perform the alcoholism classification task.*
 ### Test the EEG disguising Model
