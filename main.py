@@ -6,6 +6,5 @@ if __name__ == '__main__':
     # PrepareDataset()
 
     feature_classifier = FeatureClassifier()
-    feature_classifier.initialize()
     feature_classifier.run()
     print()

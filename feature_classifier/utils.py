@@ -1,8 +1,6 @@
 import os
 from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
-
-
 def create_model(self):
     if self.args.model_name == 'ResNet18':
         self.model = ResNet18(self.num_classes)

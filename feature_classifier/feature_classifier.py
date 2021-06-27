@@ -2,14 +2,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-import os
-import argparse
-from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 import numpy as np
 import scipy.io as sio
 import torch.utils.data as Data
 from sklearn.metrics import recall_score
-from tqdm import tqdm
 import os
 import argparse
 from feature_classifier.utils import create_model, create_dirs, remove_previous_checkpoints
@@ -17,34 +13,38 @@ from feature_classifier.create_dataset import CreateDataset
 
 class FeatureClassifier():
     def __init__(self):
-        self.initialized = False
+        self.args = argparse.Namespace()
+        self.args.seed = 1324
+        self.set_seed()
+        self.set_hyperparameters()
+        self.args.dataset_path = os.path.join('.', 'datasets', 'eeg')
+        self.args.accuracy_best = np.NINF
+        self.args.loss_best = np.Inf
+        self.args.num_keep_best = 5
+        self.resume_epoch = 8
+        self.resume_condition = True
+        self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
+        self.args.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
+        self.get_num_classes()
+        self.create_dataloaders()
+        create_model(self)
+        create_dirs(self)
+        self.set_device()
+        self.set_model_options()
+        self.load_model()
 
-    def initialize(self):
-        if not self.initialized:
-            self.initialized = True
-            self.args = argparse.Namespace()
-            self.args.seed = 1324
-            self.set_seed()
-            self.set_hyperparameters()
-            self.args.dataset_path = os.path.join('.', 'datasets', 'eeg')
-            self.args.model_name = 'ResNet18' # ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
-            self.args.feature = 'alcoholism' # alcoholism, stimulus, id
-            self.args.batch_size = 784
-            self.args.learning_rate = 0.1
-            self.args.accuracy_best = np.NINF
-            self.args.loss_best = np.Inf
-            self.args.num_keep_best = 5
-            self.resume_epoch = 8
-            self.resume_condition = True
-            self.args.checkpoint_mode = 'accuracy' # accuracy, loss
-            self.args.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
-            self.get_num_classes()
-            self.create_dataloaders()
-            create_model(self)
-            create_dirs(self)
-            self.set_device()
-            self.set_model_options()
-            self.load_model()
+    def set_hyperparameters(self):
+        self.args.model_name = 'ResNet18'  # ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+        self.args.feature = 'alcoholism'  # alcoholism, stimulus, id
+        self.args.batch_size = 784
+        self.args.learning_rate = 0.1
+        self.args.momentum = 0.9
+        self.args.weight_decay = 5e-4
+        self.args.beta_1 = 0.5
+        self.args.beta_2 = 0.999
+        self.args.optimizer_variant = 'SGD' # SGD, Adam
+        self.args.start_epoch = 0
+        self.args.num_epochs = 200
 
     def create_dataloaders(self):
         # load the augmented dataset if we are using id as feature
@@ -90,17 +90,6 @@ class FeatureClassifier():
             self.num_classes = 122
         else:
             raise ValueError(f'feature [{self.args.feature}] not recognized.')
-
-    def set_hyperparameters(self):
-        self.args.batch_size = 784
-        self.args.learning_rate = 0.1
-        self.args.momentum = 0.9
-        self.args.weight_decay = 5e-4
-        self.args.beta_1 = 0.5
-        self.args.beta_2 = 0.999
-        self.args.optimizer_variant = 'SGD' # SGD, Adam
-        self.args.start_epoch = 0
-        self.args.num_epochs = 200
 
     def set_model_options(self):
         self.criterion = nn.CrossEntropyLoss()
