@@ -8,7 +8,8 @@ import torch.utils.data as Data
 from sklearn.metrics import recall_score
 import os
 import argparse
-from feature_classifier.utils import create_model, create_dirs, remove_previous_checkpoints
+from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+from feature_classifier.utils import create_dirs
 from feature_classifier.create_dataset import CreateDataset
 
 class FeatureClassifier():
@@ -22,13 +23,13 @@ class FeatureClassifier():
         self.args.loss_best = np.Inf
         self.args.num_keep_best = 5
         self.resume_epoch = 8
-        self.resume_condition = True
+        self.resume_condition = False
         self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
         self.args.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
         self.get_num_classes()
         self.create_dataloaders()
-        create_model(self)
-        create_dirs(self)
+        self.create_model()
+        self.create_dirs()
         self.set_device()
         self.set_model_options()
         self.load_model()
@@ -45,6 +46,20 @@ class FeatureClassifier():
         self.args.optimizer_variant = 'SGD' # SGD, Adam
         self.args.start_epoch = 0
         self.args.num_epochs = 200
+
+    def create_model(self):
+        if self.args.model_name == 'ResNet18':
+            self.model = ResNet18(self.num_classes)
+        elif self.args.model_name == 'ResNet34':
+            self.model = ResNet34(self.num_classes)
+        elif self.args.model_name == 'ResNet50':
+            self.model = ResNet50(self.num_classes)
+        elif self.args.model_name == 'ResNet101':
+            self.model = ResNet101(self.num_classes)
+        elif self.args.model_name == 'ResNet152':
+            self.model = ResNet152(self.num_classes)
+        else:
+            raise NotImplementedError(f'model_name [{self.args.model_name}] not implemented.')
 
     def create_dataloaders(self):
         # load the augmented dataset if we are using id as feature
@@ -69,6 +84,14 @@ class FeatureClassifier():
 
     def load_mat(self, filename):
         return sio.loadmat(os.path.join(self.args.dataset_path, filename))
+
+    def create_dirs(self):
+        dir_list = [
+            ['.', 'feature_classifier'],
+            ['.', 'feature_classifier', 'checkpoints'],
+            ['.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name]
+        ]
+        create_dirs(dir_list)
 
     def set_device(self):
         self.args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -109,6 +132,12 @@ class FeatureClassifier():
             self.optimizer.step()
         return loss.item()
 
+    def remove_previous_checkpoints(self):
+        all_files = sorted(os.listdir(self.args.checkpoint_path))
+        if len(all_files) >= self.args.num_keep_best:
+            current_full_path = os.path.join(self.args.checkpoint_path, all_files[0])
+            os.remove(current_full_path)
+
     def save_model(self, accuracy, loss):
         if self.args.mode == 'val':
             save_condition = False
@@ -122,7 +151,7 @@ class FeatureClassifier():
                     self.args.loss_best = loss
 
             if save_condition:
-                remove_previous_checkpoints(self)
+                self.remove_previous_checkpoints()
                 save_path = os.path.join(self.args.checkpoint_path, f'{self.args.index_epoch+1}.pth')
                 save_dict = {'args': self.args,
                              'criterion': self.criterion,

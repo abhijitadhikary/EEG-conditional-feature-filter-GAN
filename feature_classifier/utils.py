@@ -1,27 +1,7 @@
 import os
-from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
-def create_model(self):
-    if self.args.model_name == 'ResNet18':
-        self.model = ResNet18(self.num_classes)
-    elif self.args.model_name == 'ResNet34':
-        self.model = ResNet34(self.num_classes)
-    elif self.args.model_name == 'ResNet50':
-        self.model = ResNet50(self.num_classes)
-    elif self.args.model_name == 'ResNet101':
-        self.model = ResNet101(self.num_classes)
-    elif self.args.model_name == 'ResNet152':
-        self.model = ResNet152(self.num_classes)
-    else:
-        raise NotImplementedError(f'model_name [{self.args.model_name}] not implemented.')
 
-def create_dirs(self):
-    dir_list = [
-        ['.', 'feature_classifier'],
-        ['.', 'feature_classifier', 'checkpoints'],
-        ['.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name]
-    ]
-
+def create_dirs(dir_list):
     for current_dir in dir_list:
         current_path = current_dir[0]
         if len(current_dir) > 1:
@@ -29,9 +9,3 @@ def create_dirs(self):
                 current_path = os.path.join(current_path, current_dir[sub_dir_index])
         if not os.path.exists(current_path):
             os.makedirs(current_path)
-
-def remove_previous_checkpoints(self):
-    all_files = sorted(os.listdir(self.args.checkpoint_path))
-    if len(all_files) >= self.args.num_keep_best:
-        current_full_path = os.path.join(self.args.checkpoint_path, all_files[0])
-        os.remove(current_full_path)
