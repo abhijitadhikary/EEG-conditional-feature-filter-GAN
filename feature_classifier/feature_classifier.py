@@ -25,6 +25,7 @@ class FeatureClassifier():
         self.args.num_keep_best = 5
         self.resume_epoch = 8
         self.resume_condition = False
+        self.args.save_condition = True
         self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
         self.get_num_classes()
         self.create_dataloaders()
@@ -138,7 +139,7 @@ class FeatureClassifier():
             os.remove(current_full_path)
 
     def save_model(self, accuracy, loss):
-        if self.args.mode == 'val':
+        if self.args.mode == 'val' and self.args.save_condition:
             save_condition = False
             if self.args.checkpoint_mode == 'accuracy':
                 if accuracy > self.args.accuracy_best:

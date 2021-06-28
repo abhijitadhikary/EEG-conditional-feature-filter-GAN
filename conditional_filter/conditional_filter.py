@@ -21,9 +21,13 @@ class ConditionalFilter():
         self.args.dataset_path = os.path.join('.', 'datasets', 'eeg')
         # self.args.accuracy_best = np.NINF
         # self.args.loss_best = np.Inf
+        self.args.loss_D_cls_best = np.inf
+        self.args.loss_D_adv_best = np.inf
+        self.args.loss_G_best = np.inf
         self.args.num_keep_best = 5
-        self.resume_epoch = 8
+        self.resume_epoch = 4
         self.resume_condition = False
+        self.args.save_condition = True
         self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
         self.create_dataloaders()
         self.create_model()
@@ -31,7 +35,7 @@ class ConditionalFilter():
         self.set_model_options()
         self.args.checkpoint_path = os.path.join('.', 'conditional_filter', 'checkpoints', self.args.model_name, self.args.split_variant)
         self.create_dirs()
-        # self.load_model()
+        self.load_model()
 
     def set_hyperparameters(self):
         self.args.model_name = 'baseline'  # baseline
@@ -63,7 +67,7 @@ class ConditionalFilter():
             ['.', 'conditional_filter', 'checkpoints'],
             ['.', 'conditional_filter', 'checkpoints', self.args.model_name, self.args.split_variant],
             ['.', 'conditional_filter', 'runs', self.args.model_name, self.args.split_variant],
-            ['.', 'output', self.args.model_name, self.args.split_variant]
+            ['.', 'conditional_filter', 'output', self.args.model_name, self.args.split_variant]
         ]
         create_dirs(dir_list)
 
@@ -130,36 +134,24 @@ class ConditionalFilter():
         else:
             raise NotImplementedError(f'Invalid optimizer_variant selected: {self.args.optimizer_variant}')
 
-        self.args.writer = SummaryWriter(os.path.join('conditional_filter', 'runs', self.args.model_name, self.args.split_variant))
+        self.writer = SummaryWriter(os.path.join('conditional_filter', 'runs', self.args.model_name, self.args.split_variant))
+
+        self.args.loss_D_cls_train_running = []
+        self.args.loss_D_adv_train_running = []
+        self.args.loss_D_total_train_running = []
+        self.args.loss_G_train_running = []
+        self.args.loss_D_cls_val_running = []
+        self.args.loss_D_adv_val_running = []
+        self.args.loss_D_total_val_running = []
+        self.args.loss_G_val_running = []
+
+
 
     def remove_previous_checkpoints(self):
         all_files = sorted(os.listdir(self.args.checkpoint_path))
         if len(all_files) >= self.args.num_keep_best:
             current_full_path = os.path.join(self.args.checkpoint_path, all_files[0])
             os.remove(current_full_path)
-
-    def save_model(self, accuracy, loss):
-        if self.args.mode == 'val':
-            save_condition = False
-            if self.args.checkpoint_mode == 'accuracy':
-                if accuracy > self.args.accuracy_best:
-                    save_condition = True
-                    self.args.accuracy_best = accuracy
-            if self.args.checkpoint_mode == 'loss':
-                if loss < self.args.loss_best:
-                    save_condition = True
-                    self.args.loss_best = loss
-
-            if save_condition:
-                self.remove_previous_checkpoints()
-                save_path = os.path.join(self.args.checkpoint_path, f'{self.args.index_epoch+1}.pth')
-                save_dict = {'args': self.args,
-                             'criterion': self.criterion,
-                             'model_state_dict': self.model.state_dict(),
-                             'optim_state_dict': self.optimizer.state_dict()
-                             }
-                torch.save(save_dict, save_path)
-                print(f'New best model saved at epoch: {self.args.index_epoch+1}')
 
     def save_model(self, loss_D_cls, loss_D_adv, loss_G):
         '''
@@ -184,24 +176,25 @@ class ConditionalFilter():
             print(f'*********************** New best model saved at {self.args.index_epoch + 1} ***********************')
 
     def load_model(self):
-        load_path = os.path.join(self.args.checkpoint_path, f'{self.args.resume_epoch}.pth')
+        if self.resume_condition:
+            load_path = os.path.join(self.args.checkpoint_path, f'{self.resume_epoch}.pth')
 
-        if load_path is not None:
-            if not os.path.exists(load_path):
-                raise FileNotFoundError(f'File {load_path} doesn\'t exist')
+            if load_path is not None:
+                if not os.path.exists(load_path):
+                    raise FileNotFoundError(f'File {load_path} doesn\'t exist')
 
-            checkpoint = torch.load(load_path)
+                checkpoint = torch.load(load_path)
 
-            self.args = checkpoint['args']
-            self.model_D_cls.load_state_dict(checkpoint['D_cls_state_dict'])
-            self.optimizer_D_cls.load_state_dict(checkpoint['D_cls_optim_dict'])
-            self.model_D_adv.load_state_dict(checkpoint['D_adv_state_dict'])
-            self.optimizer_D_adv.load_state_dict(checkpoint['D_adv_optim_dict'])
-            self.model_G.load_state_dict(checkpoint['G_state_dict'])
-            self.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
+                self.args = checkpoint['args']
+                self.model_D_cls.load_state_dict(checkpoint['D_cls_state_dict'])
+                self.optimizer_D_cls.load_state_dict(checkpoint['D_cls_optim_dict'])
+                self.model_D_adv.load_state_dict(checkpoint['D_adv_state_dict'])
+                self.optimizer_D_adv.load_state_dict(checkpoint['D_adv_optim_dict'])
+                self.model_G.load_state_dict(checkpoint['G_state_dict'])
+                self.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
 
-            print(f'Model successfully loaded from epoch {self.args.resume_epoch}')
-            self.args.start_epoch = self.args.index_epoch + 1
+                print(f'Model successfully loaded from epoch {self.resume_epoch}')
+                self.args.start_epoch = self.args.index_epoch + 1
 
     def run(self):
         for index_epoch in range(self.args.start_epoch, self.args.num_epochs):
@@ -210,7 +203,7 @@ class ConditionalFilter():
             # train
             loss_D_cls_epoch_train, loss_D_adv_epoch_train, loss_D_total_epoch_train, loss_G_epoch_train, \
             D_cls_conf_real_epoch_train, D_adv_conf_real_epoch_train, D_cls_conf_fake_epoch_train, D_adv_conf_fake_epoch_train, \
-                = forward_pass(self.args, self.dataloader_train, mode='train')
+                = forward_pass(self, self.dataloader_train, mode='train')
             self.args.loss_D_cls_train_running.append(loss_D_cls_epoch_train)
             self.args.loss_D_adv_train_running.append(loss_D_adv_epoch_train)
             self.args.loss_D_total_train_running.append(loss_D_total_epoch_train)
@@ -219,13 +212,13 @@ class ConditionalFilter():
             # validate
             loss_D_cls_epoch_val, loss_D_adv_epoch_val, loss_D_total_epoch_val, loss_G_epoch_val, \
             D_cls_conf_real_epoch_val, D_adv_conf_real_epoch_val, D_cls_conf_fake_epoch_val, D_adv_conf_fake_epoch_val \
-                = forward_pass(self.args, self.dataloader_val, mode='val')
+                = forward_pass(self, self.dataloader_val, mode='val')
             self.args.loss_D_cls_val_running.append(loss_D_cls_epoch_val)
             self.args.loss_D_adv_val_running.append(loss_D_adv_epoch_val)
             self.args.loss_D_total_val_running.append(loss_D_total_epoch_val)
             self.args.loss_G_val_running.append(loss_G_epoch_val)
 
-            self.args.writer.add_scalars('Loss', {
+            self.writer.add_scalars('Loss', {
                 'train_D_cls': loss_D_cls_epoch_train,
                 'train_D_adv': loss_D_adv_epoch_train,
                 'val_D_cls': loss_D_cls_epoch_val,
@@ -234,14 +227,14 @@ class ConditionalFilter():
                 'val_G': loss_G_epoch_val
             }, index_epoch + 1)
 
-            self.args.writer.add_scalars('Confidence_train', {
+            self.writer.add_scalars('Confidence_train', {
                 'D_cls_real': D_cls_conf_real_epoch_train,
                 'D_cls_fake': D_cls_conf_fake_epoch_train,
                 'D_adv_real': D_adv_conf_real_epoch_train,
                 'D_adv_fake': D_adv_conf_fake_epoch_train,
             }, index_epoch + 1)
 
-            self.args.writer.add_scalars('Confidence_val', {
+            self.writer.add_scalars('Confidence_val', {
                 'D_cls_real': D_cls_conf_real_epoch_val,
                 'D_cls_fake': D_cls_conf_fake_epoch_val,
                 'D_adv_real': D_adv_conf_real_epoch_val,
@@ -250,3 +243,8 @@ class ConditionalFilter():
 
             # need to update this function to accommodate loss_D_adv
             self.save_model(loss_D_cls_epoch_val, loss_D_adv_epoch_val, loss_G_epoch_val)
+
+        # test
+        loss_D_cls_epoch_test, loss_D_adv_epoch_test, loss_D_total_epoch_test, loss_G_epoch_test, \
+        D_cls_conf_real_epoch_test, D_adv_conf_real_epoch_test, D_cls_conf_fake_epoch_test, D_adv_conf_fake_epoch_test, \
+            = forward_pass(self, self.dataloader_test, mode='test')
