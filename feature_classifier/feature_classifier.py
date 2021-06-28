@@ -5,12 +5,13 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import scipy.io as sio
 import torch.utils.data as Data
-from sklearn.metrics import recall_score
 import os
 import argparse
 from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 from utils.utils import create_dirs
 from feature_classifier.create_dataset import CreateDataset
+from feature_classifier.forward_pass import forward_pass
+
 
 class FeatureClassifier():
     def __init__(self):
@@ -25,14 +26,14 @@ class FeatureClassifier():
         self.resume_epoch = 8
         self.resume_condition = False
         self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
-        self.args.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
         self.get_num_classes()
         self.create_dataloaders()
         self.create_model()
-        self.create_dirs()
         self.set_device()
         self.set_model_options()
         self.load_model()
+        self.args.checkpoint_path = os.path.join('.', 'feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
+        self.create_dirs()
 
     def set_hyperparameters(self):
         self.args.model_name = 'ResNet18'  # ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
@@ -157,7 +158,7 @@ class FeatureClassifier():
                              'optim_state_dict': self.optimizer.state_dict()
                              }
                 torch.save(save_dict, save_path)
-                print(f'New best model saved at epoch: {self.args.index_epoch+1}')
+                print(f'*********************** New best model saved at {self.args.index_epoch + 1} ***********************')
 
     def load_model(self):
         if self.resume_condition:
@@ -176,59 +177,12 @@ class FeatureClassifier():
                 print(f'Model successfully loaded from epoch {self.resume_epoch}')
                 self.args.start_epoch = self.args.index_epoch + 1
 
-    def forward_pass(self):
-        # train
-        if self.args.mode == 'train':
-            self.model.train()
-            dataloader = self.dataloader_train
-        else:
-            self.model.eval()
-            dataloader = self.dataloader_test
-
-        loss_epoch = 0
-        correct_epoch = 0
-        num_samples = 0
-        accuracy_list, sensitivity_list, specificity_list = [], [], []
-
-        for index_batch, (features, labels_real) in enumerate(dataloader):
-            features, labels_real = features.to(self.args.device), labels_real.to(self.args.device)
-            self.optimizer.zero_grad()
-            labels_pred = self.model(features)
-            loss_batch = self.optimize_parameters(labels_real, labels_pred)
-
-            loss_epoch += loss_batch
-            labels_pred = torch.argmax(labels_pred, dim=1)
-            correct_batch = torch.sum(labels_pred == labels_real).item()
-            length_batch = len(labels_real)
-
-            accuracy_batch = (correct_batch / length_batch)
-            accuracy_list.append(accuracy_batch)
-
-            if self.args.feature == 'alcoholism' and self.args.mode == 'val':
-                sensitivity_batch = recall_score(labels_real.cpu(), labels_pred.cpu(), pos_label=1) * 100.
-                specificity_batch = recall_score(labels_real.cpu(), labels_pred.cpu(), pos_label=0) * 100.
-                sensitivity_list.append(sensitivity_batch)
-                specificity_list.append(specificity_batch)
-
-        num_samples_epoch = len(accuracy_list)
-        accuracy_epoch = 100 * (np.sum(accuracy_list) / num_samples_epoch)
-        loss_epoch /= num_samples_epoch
-
-        print(f'Epoch:\t[{self.args.index_epoch+1}/{self.args.num_epochs}]\t{self.args.mode.upper()} Loss:\t{loss_epoch:.3f}\tAccuracy:\t{accuracy_epoch:.3f} %\tCorrect:\t[{correct_epoch}/{num_samples}]', end='')
-        if self.args.feature == 'alcoholism' and self.args.mode == 'val':
-            sensitivity_epoch = (np.sum(sensitivity_list) / num_samples_epoch)
-            specificity_epoch = (np.sum(specificity_list) / num_samples_epoch)
-            print(f'\tSensitivity:\t{sensitivity_epoch:.3f} %\tSpecificity:\t{specificity_epoch:.3f} %')
-        else:
-            print()
-        self.save_model(accuracy_epoch, loss_epoch)
-
     def run(self):
         for index_epoch in range(self.args.start_epoch, self.args.num_epochs):
             self.args.index_epoch = index_epoch
             for mode in ['train', 'val']:
                 self.args.mode = mode
-                self.forward_pass()
+                forward_pass(self)
 
 
 
