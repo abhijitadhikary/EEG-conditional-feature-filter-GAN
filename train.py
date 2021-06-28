@@ -2,7 +2,7 @@ import time
 from options.train_options import TrainOptions
 from data import CreateDataLoader
 from models import create_model
-from util.visualizer import Visualizer
+from utils.visualizer import Visualizer
 import os
 
 #os.environ['CUDA_LAUNCH_BLOCKING'] = "1"

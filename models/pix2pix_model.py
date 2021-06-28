@@ -1,5 +1,5 @@
 import torch
-from util.image_pool import ImagePool
+from utils.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 

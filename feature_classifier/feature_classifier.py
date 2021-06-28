@@ -9,7 +9,7 @@ from sklearn.metrics import recall_score
 import os
 import argparse
 from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
-from feature_classifier.utils import create_dirs
+from utils.utils import create_dirs
 from feature_classifier.create_dataset import CreateDataset
 
 class FeatureClassifier():
@@ -41,8 +41,6 @@ class FeatureClassifier():
         self.args.learning_rate = 0.1
         self.args.momentum = 0.9
         self.args.weight_decay = 5e-4
-        self.args.beta_1 = 0.5
-        self.args.beta_2 = 0.999
         self.args.optimizer_variant = 'SGD' # SGD, Adam
         self.args.start_epoch = 0
         self.args.num_epochs = 200
@@ -121,7 +119,7 @@ class FeatureClassifier():
                                        weight_decay=self.args.weight_decay)
         elif self.args.optimizer_variant == 'Adam':
             self.optimizer = optim.Adam(self.model.parameters(), lr=self.args.learning_rate,
-                                        betas=(self.args.beta_1, self.args.beta_2))
+                                        betas=(0.5, 0.999))
         else:
             raise NotImplementedError(f'Invalid optimizer_variant selected: {self.args.optimizer_variant}')
 

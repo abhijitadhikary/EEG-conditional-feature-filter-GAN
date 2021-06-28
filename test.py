@@ -2,8 +2,8 @@ import os
 from options.test_options import TestOptions
 from data import CreateDataLoader
 from models import create_model
-from util.visualizer import save_images
-from util import html
+from utils.visualizer import save_images
+from utils import html
 import numpy as np
 import torch
 from sklearn.metrics import recall_score
@@ -20,7 +20,7 @@ from resnet import ResNet50
 import torch.backends.cudnn as cudnn
 
 
-#from util.tsne_visual import embd_visual, embd_visual_group
+#from utils.tsne_visual import embd_visual, embd_visual_group
 
 
 import matplotlib.pyplot as plt 
