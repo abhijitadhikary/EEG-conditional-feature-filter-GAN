@@ -2,6 +2,7 @@ import torch
 import os
 import torchvision
 
+
 def forward_pass(self, dataloader, mode='train'):
     num_batches = len(dataloader)
     loss_D_cls_epoch = 0
@@ -24,10 +25,13 @@ def forward_pass(self, dataloader, mode='train'):
             self.model_D_adv.eval()
             self.model_G.eval()
 
+        # extract batch from dataloader
         image, image_c_real, image_c_fake, condition_array_real, condition_array_fake, identity, stimulus, alcoholism, \
         targets_real_cls, targets_real_adv, targets_fake_cls, targets_fake_adv = batch
+
+        # to device
         image, image_c_real, image_c_fake, condition_array_real, condition_array_fake, identity, stimulus, \
-        alcoholism, targets_real_cls, targets_real_adv, targets_fake_cls, targets_fake_adv = \
+            alcoholism, targets_real_cls, targets_real_adv, targets_fake_cls, targets_fake_adv = \
             image.to(self.args.device), image_c_real.to(self.args.device), image_c_fake.to(self.args.device), \
             condition_array_real.to(self.args.device), condition_array_fake.to(self.args.device), \
             identity.to(self.args.device), stimulus.to(self.args.device), alcoholism.to(self.args.device), \
@@ -49,7 +53,7 @@ def forward_pass(self, dataloader, mode='train'):
         self.model_D_cls.zero_grad()
         self.model_D_adv.zero_grad()
         out_D_cls_real = self.model_D_cls(image_c_real).squeeze(3)
-        loss_D_cls_real = self.criterion_D_cls(out_D_cls_real, targets_real_cls)
+        loss_D_cls_real = self.criterion_D_cls(out_D_cls_real.squeeze(2), targets_real_cls.squeeze(2))
 
         out_D_adv_real = self.model_D_adv(image_c_real).reshape(-1, 1)
         loss_D_adv_real = self.criterion_D_adv(out_D_adv_real, targets_real_adv)
@@ -118,7 +122,8 @@ def forward_pass(self, dataloader, mode='train'):
 
             # combine the grids
             img_grid_combined = torch.hstack((img_grid_real, img_grid_fake))
-            output_path = os.path.join('.', 'conditional_filter', 'output', self.args.model_name, self.args.split_variant, f'{self.args.index_epoch}_{index_batch}_{mode}.jpg')
+            output_path = os.path.join('.', 'conditional_filter', 'output', self.args.model_name,
+                                       self.args.split_variant, f'{self.args.index_epoch}_{index_batch}_{mode}.jpg')
             torchvision.utils.save_image(img_grid_combined, output_path)
 
     loss_D_cls_epoch /= num_batches
@@ -139,9 +144,8 @@ def forward_pass(self, dataloader, mode='train'):
 
 
 def print_loss(loss_D_cls, loss_D_adv, loss_D_total, loss_G,
-                D_cls_conf_real, D_adv_conf_real, D_cls_conf_fake, D_adv_conf_fake,
-                index_epoch=-1, num_epochs=-1, mode='train'):
-
+               D_cls_conf_real, D_adv_conf_real, D_cls_conf_fake, D_adv_conf_fake,
+               index_epoch=-1, num_epochs=-1, mode='train'):
     epoch_num = ''
     # space_pre = '\t\t\t\t'
     space_pre = ''

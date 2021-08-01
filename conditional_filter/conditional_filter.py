@@ -27,7 +27,7 @@ class ConditionalFilter():
         self.args.num_keep_best = 5
         self.resume_epoch = 4
         self.resume_condition = False
-        self.args.save_condition = True
+        self.args.save_condition = False
         self.args.checkpoint_mode = 'accuracy'  # accuracy, loss
         self.create_dataloaders()
         self.create_model()
@@ -106,13 +106,13 @@ class ConditionalFilter():
             raise NotImplementedError(f'model_name [{self.args.model_name}] not implemented.')
 
     def set_model_options(self):
-        self.criterion_D_cls = nn.BCELoss()
+        self.criterion_D_cls = nn.CrossEntropyLoss()
         self.criterion_D_adv = nn.BCELoss()
         self.criterion_G = nn.L1Loss()
 
-        self.criterion_D_alc = nn.L1Loss()
-        self.criterion_D_stm = nn.L1Loss()
-        self.criterion_D_id = nn.L1Loss()
+        # self.criterion_D_alc = nn.L1Loss()
+        # self.criterion_D_stm = nn.L1Loss()
+        # self.criterion_D_id = nn.L1Loss()
 
         if self.args.optimizer_variant == 'SGD':
             self.optimizer_D_cls = optim.SGD(self.model_D_cls.parameters(), lr=self.args.learning_rate_cls,
