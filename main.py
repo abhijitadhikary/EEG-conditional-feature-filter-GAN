@@ -11,7 +11,7 @@ if __name__ == '__main__':
     # feature_classifier.run()
 
     # generate synthetic data
-    # generate_synthetic_data(path_dataset=os.path.join('datasets', 'eeg'), load_feq_data=False)
+    generate_synthetic_data(path_dataset=os.path.join('datasets', 'eeg'), load_freq_data=True)
 
     # train conditional feature classifier
     feature_classifier_conditional = FeatureClassifierConditional()

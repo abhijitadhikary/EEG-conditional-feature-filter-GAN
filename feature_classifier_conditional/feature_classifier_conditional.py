@@ -27,6 +27,7 @@ class FeatureClassifierConditional():
         self.resume_condition = False
         self.args.save_condition = True
         self.args.checkpoint_mode = 'loss'  # accuracy, loss
+        self.args.split_mode = 'across'
         # self.get_num_classes()
         self.create_dataloaders()
         self.create_model()
@@ -199,24 +200,30 @@ class FeatureClassifierConditional():
 
 
     def create_dataloaders(self):
-        # load the augmented dataset if we are using id as feature
-        self.args.filename_train = 'conditional_data.mat'
+        self.num_classes = 8
+        modes = ['train', 'val', 'test']
+        datasets = []
+        for mode in modes:
+            filename = f'eeg_conditional_images_{mode}_{self.args.split_mode}.mat'
+            data = self.load_mat(filename)
 
-        # load the .mat files
-        data = self.load_mat(self.args.filename_train)
-        # data_test = self.load_mat(self.args.filename_test)
+            images = data['images']
+            images = np.transpose(images, (0, 3, 1, 2))
 
-        features_train, labels_train, features_val, labels_val, features_test, labels_test = self.process_conditional_features(data)
+            # labels = data['labels'][:, :3] # take one_by_three labels
+            labels = data['labels'][:, -1]  # take 0-7 labels
+
+            dataset = CreateDataset(images, labels)
+            datasets.append(dataset)
+
+        # features, labels, features_val, labels_val, features_test, labels_test = self.process_conditional_features(data)
 
         # create dataloders
-        dataset_train = CreateDataset(features_train, labels_train)
-        self.dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=self.args.batch_size, shuffle=True)
+        self.dataloader_train = torch.utils.data.DataLoader(datasets[0], batch_size=self.args.batch_size, shuffle=True)
 
-        dataset_val = CreateDataset(features_val, labels_val)
-        self.dataloader_val = torch.utils.data.DataLoader(dataset_val, batch_size=self.args.batch_size, shuffle=True)
+        self.dataloader_val = torch.utils.data.DataLoader(datasets[1], batch_size=self.args.batch_size, shuffle=True)
 
-        dataset_test = CreateDataset(features_test, labels_test)
-        self.dataloader_test = torch.utils.data.DataLoader(dataset_test, batch_size=self.args.batch_size, shuffle=True)
+        self.dataloader_test = torch.utils.data.DataLoader(datasets[2], batch_size=self.args.batch_size, shuffle=True)
 
     def load_mat(self, filename):
         return sio.loadmat(os.path.join(self.args.dataset_path, filename))
