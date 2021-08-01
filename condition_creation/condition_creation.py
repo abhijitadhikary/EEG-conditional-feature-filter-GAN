@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import pandas as pd
 from tqdm import tqdm
+import os
 import math
 
 
@@ -153,9 +154,9 @@ def get_fft(snippet):
     return frq, abs(Y)
 
 
-def get_2d_electrode_locations():
+def get_2d_electrode_locations(path_dataset):
     # Load electrode locations
-    locs = loadmat('Neuroscan_locs_orig.mat')
+    locs = loadmat(os.path.join(path_dataset, 'Neuroscan_locs_orig.mat'))
     locs_3d = locs['A']
     locs_2d = []
     # Convert to 2D
@@ -244,7 +245,7 @@ def get_average_data(data_input, window_size):
         end = index + window_size // 2 + 1
 
         indices = [index_a for index_a in range(start, end)]
-        data_selected = data_freq[indices]
+        data_selected = data_input[indices]
         data_avg = np.mean(data_selected, axis=0)
         data_avg_list.append(data_avg)
     data_avg_list = np.array(data_avg_list)
@@ -266,13 +267,21 @@ def hide_identity_keep_stimulus(df, data_freq, alcoholism_condition, window_size
     df_V_2_T = df.iloc[indices_V_2_T].sample(n=to_sample, replace=True, random_state=random_state)
     df_V_3_T = df.iloc[indices_V_3_T].sample(n=to_sample, replace=True, random_state=random_state)
 
+    indices_selected__V_1_T = df_V_1_T.index
+    indices_selected__V_2_T = df_V_2_T.index
+    indices_selected__V_3_T = df_V_3_T.index
+
+    data_selected__V_1_T = data_freq[indices_selected__V_1_T]
+    data_selected__V_2_T = data_freq[indices_selected__V_2_T]
+    data_selected__V_3_T = data_freq[indices_selected__V_3_T]
+
     # TODO adapt a better sampling strategy to make sure that people with same identities
     # do not end up in a given window size
 
     # average over the identities, while keeping stimulus and alcoholism informaiton
-    data_V_1_F = get_average_data(df_V_1_T, window_size)
-    data_V_2_F = get_average_data(df_V_2_T, window_size)
-    data_V_3_F = get_average_data(df_V_3_T, window_size)
+    data_V_1_F = get_average_data(data_selected__V_1_T, window_size)
+    data_V_2_F = get_average_data(data_selected__V_2_T, window_size)
+    data_V_3_F = get_average_data(data_selected__V_3_T, window_size)
 
     # stack the three different stimulius conditions into one
     data_V_T_F = np.vstack((data_V_1_F, data_V_2_F, data_V_3_F))
@@ -289,14 +298,15 @@ def hide_identity_hide_stimulus(df, data_freq, alcoholism_condition, window_size
 
     # extract the corresponding entries in the dataframe
     df_V_T_T = df.iloc[indices_V_T_T].sample(n=to_sample, replace=True, random_state=random_state)
-
+    indices_selected = df_V_T_T.index
+    data_selected = data_freq[indices_selected]
     # TODO adapt a better sampling strategy to make sure that people with same identities
     # do not end up in a given window size
 
     # average over the identities and stimulus while keeping alcoholism informaiton
-    data_V_F_F = get_average_data(df_V_T_T, window_size)
+    data_selected = get_average_data(data_selected, window_size)
 
-    return data_V_F_F
+    return data_selected
 
 
 def keep_identity_hide_stimulus(df, data_freq, alcoholism_condition, window_size=3, to_sample=2000, random_state=0):
@@ -317,15 +327,27 @@ def keep_identity_hide_stimulus(df, data_freq, alcoholism_condition, window_size
         if len(indices_V_T_VI) > 0:
             # extract the corresponding entries in the dataframe
             df_V_T_VI = df.iloc[indices_V_T_VI].sample(n=to_sample, replace=True, random_state=random_state)
+            indices_selected = df_V_T_VI.index
+            data_selected = data_freq[indices_selected]
 
             # average over the stimulus, while keeping identity and alcoholism informaiton
-            data_V_F_VI = get_average_data(indices_V_T_VI, window_size)
+            data_V_F_VI = get_average_data(data_selected, window_size)
             if len(data_V_F_VI_array) == 0:
                 data_V_F_VI_array = data_V_F_VI
             else:
                 data_V_F_VI_array = np.vstack((data_V_F_VI_array, data_V_F_VI))
-    if len(data_V_F_VI_array) > to_sample_in:
-        data_V_F_VI_array = data_V_F_VI_array[np.random.choice(np.arange(to_sample_in), to_sample_in)]
+
+    num_elements = len(data_V_F_VI_array)
+
+    if num_elements > to_sample_in:
+        # if num_elements is larger, randomly sample a subset
+        data_V_F_VI_array = data_V_F_VI_array[np.random.choice(np.arange(num_elements), num_elements)][:to_sample_in]
+    if num_elements < to_sample_in:
+        # if num_elements is smaller, randomly resample some points and append to the existing
+        num_diff = to_sample_in - num_elements
+
+        data_temp = data_V_F_VI_array[np.random.choice(np.arange(num_elements), num_diff)]
+        data_V_F_VI_array = np.vstack((data_V_F_VI_array, data_temp))
 
     return data_V_F_VI_array
 
@@ -340,116 +362,117 @@ def keep_identity_keep_stimulus(df, data_freq, alcoholism_condition, window_size
 
     return data_V_T_T
 
-# load the complete ucieeg dataset
-data_time, df = load_data('ucieeg.mat')
+def create_synthetic_dummy_data(df, data_freq, samples_per_category, window_size):
+    # 1. (T T T) Alcoholism + stimulus + identity
+    data_T_T_T = keep_identity_keep_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-# convert data from time to frequency domain
-print('Converting from time to frequency domain')
-data_freq = convert_time_to_frequency(data_time)
+    # 2. (F T T) NO-Alcoholism + stimulus + identity
+    data_F_T_T = keep_identity_keep_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-savemat('ucieeg_freq.mat',  {'data_freq': data_freq, 'df': df})
-df.to_csv('df.csv', index=False)
-####################################################
+    # 3. (T F F) Alcoholism + NO-stimulus + NO-identity
+    data_T_F_F = hide_identity_hide_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size,
+                                             to_sample=samples_per_category)
 
+    # 4. (F F F) NO-Alcoholism + NO-stimulus + NO-identity
+    data_F_F_F = hide_identity_hide_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-# data_mat = loadmat('ucieeg_freq.mat')
-# data_freq = data_mat['data_freq']
-# df = pd.read_csv('df.csv')
+    # 5. (T F T) Alcoholism + NO-stimulus + identity
+    data_T_F_T = keep_identity_hide_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-np.random.seed(0)
-# convert 3d locations of electrodes to 2d
-locs_2d = get_2d_electrode_locations()
+    # 6. (F F T) Alcoholism + NO-stimulus + identity
+    data_F_F_T = keep_identity_hide_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-# extract unique labels
-labels_unique_alcoholism = np.array(df['alcoholism'].value_counts().keys())
-labels_unique_stimulus = np.array(df['stimulus'].value_counts().keys())
-labels_unique_id = np.sort(np.array(df['id'].value_counts().keys()))
+    # 7. (T T F) Alcoholism + stimulus + NO-identity
+    data_T_T_F = hide_identity_keep_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-window_size = 7
-to_sample = 3000
+    # 8. (F T F) NO-Alcoholism + stimulus + NO-identity
+    data_F_T_F = hide_identity_keep_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size,
+                                             to_sample=samples_per_category)
 
-print('Creating synthetic conditioned data')
-# 1. (T T T) Alcoholism + stimulus + identity
-data_T_T_T = keep_identity_keep_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size, to_sample=to_sample)
-print(f'T T T : {len(data_T_T_T)}')
+    data_synthetic_dummy = [data_T_T_T, data_F_T_T, data_T_F_F, data_F_F_F, data_T_F_T, data_F_F_T, data_T_T_F, data_F_T_F]
+    return data_synthetic_dummy
 
-# 2. (F T T) NO-Alcoholism + stimulus + identity
-data_F_T_T = keep_identity_keep_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size, to_sample=to_sample)
-print(f'F T T : {len(data_F_T_T)}')
+def generate_synthetic_dummy_labels(samples_per_category):
+    # generate the labels [Alcoholism, Stimulus, Identity, Category(0-7)]
+    labels_T_T_T = np.repeat(np.array([[1, 1, 1, 0]]), samples_per_category, axis=0)
+    labels_F_T_T = np.repeat(np.array([[0, 1, 1, 1]]), samples_per_category, axis=0)
+    labels_T_F_F = np.repeat(np.array([[1, 0, 0, 2]]), samples_per_category, axis=0)
+    labels_F_F_F = np.repeat(np.array([[0, 0, 0, 3]]), samples_per_category, axis=0)
+    labels_T_F_T = np.repeat(np.array([[1, 0, 1, 4]]), samples_per_category, axis=0)
+    labels_F_F_T = np.repeat(np.array([[0, 0, 1, 5]]), samples_per_category, axis=0)
+    labels_T_T_F = np.repeat(np.array([[1, 1, 0, 6]]), samples_per_category, axis=0)
+    labels_F_T_F = np.repeat(np.array([[0, 1, 0, 7]]), samples_per_category, axis=0)
 
-# 3. (T F F) Alcoholism + NO-stimulus + NO-identity
-data_T_F_F = hide_identity_hide_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size, to_sample=to_sample)
-print(f'T F F : {len(data_T_F_F)}')
+    # stack the labels into a single array
+    labels = np.vstack((labels_T_T_T, labels_F_T_T, labels_T_F_F, labels_F_F_F, labels_T_F_T, labels_F_F_T, labels_T_T_F, labels_F_T_F))
 
-# 4. (F F F) NO-Alcoholism + NO-stimulus + NO-identity
-data_F_F_F = hide_identity_hide_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size, to_sample=to_sample)
-print(f'F F F : {len(data_F_F_F)}')
+    return labels
 
-# 5. (T F T) Alcoholism + NO-stimulus + identity
-data_T_F_T = keep_identity_hide_stimulus(df, data_freq, alcoholism_condition=1, window_size=window_size, to_sample=to_sample)
-print(f'T F T : {len(data_T_F_T)}')
+def generate_synthetic_data(window_size=7, samples_per_category=3000, frame_size=32, num_channels=3, load_feq_data=False, path_dataset=None):
 
-# 6. (F F T) Alcoholism + NO-stimulus + identity
-data_F_F_T = keep_identity_hide_stimulus(df, data_freq, alcoholism_condition=0, window_size=window_size, to_sample=to_sample)
-print(f'F F T : {len(data_F_F_T)}')
+    # set seed
+    np.random.seed(0)
 
-# 7. (T T F) Alcoholism + stimulus + NO-identity
-data_T_T_F = hide_identity_keep_stimulus(df, data_freq, alcoholism_condition=1, window_size=5, to_sample=to_sample)
-print(f'T T F : {len(data_T_T_F)}')
+    # load the complete ucieeg dataset
+    if path_dataset is None:
+        path_dataset = os.path.join('..', 'datasets', 'eeg')
 
-# 8. (F T F) NO-Alcoholism + stimulus + NO-identity
-data_F_T_F = hide_identity_keep_stimulus(df, data_freq, alcoholism_condition=0, window_size=5, to_sample=to_sample)
-print(f'F T F : {len(data_F_T_F)}')
+    if load_feq_data:
+        filename_dataset = 'ucieeg_freq.mat'
+        filepath_full = os.path.join(path_dataset, filename_dataset)
+        data_mat = loadmat(filepath_full)
+        data_freq = data_mat['data_freq']
 
-print('Making frames')
-# create frames (extracts only the theta, aplha and beta channels (3))
-frames_T_T_T = make_frames(data_T_T_T, 1)
-frames_F_T_T = make_frames(data_F_T_T, 1)
-frames_T_F_F = make_frames(data_T_F_F, 1)
-frames_F_F_F = make_frames(data_F_F_F, 1)
-frames_T_F_T = make_frames(data_T_F_T, 1)
-frames_F_F_T = make_frames(data_F_F_T, 1)
-frames_T_T_F = make_frames(data_T_T_F, 1)
-frames_F_T_F = make_frames(data_F_T_F, 1)
+        df = pd.read_csv(os.path.join(path_dataset, 'conditional_data.csv'))
+    else:
+        filename_dataset = 'ucieeg.mat'
+        filepath_full = os.path.join(path_dataset, filename_dataset)
+        data_time, df = load_data(filepath_full)
 
-# convert signals to RGB images
-print('Generating images from signals')
-images_T_T_T = gen_images(locs_2d, frames_T_T_T, 32, normalize=False)
-images_F_T_T = gen_images(locs_2d, frames_F_T_T, 32, normalize=False)
-images_T_F_F = gen_images(locs_2d, frames_T_F_F, 32, normalize=False)
-images_F_F_F = gen_images(locs_2d, frames_F_F_F, 32, normalize=False)
-images_T_F_T = gen_images(locs_2d, frames_T_F_T, 32, normalize=False)
-images_F_F_T = gen_images(locs_2d, frames_F_F_T, 32, normalize=False)
-images_T_T_F = gen_images(locs_2d, frames_T_T_F, 32, normalize=False)
-images_F_T_F = gen_images(locs_2d, frames_F_T_F, 32, normalize=False)
+        # convert data from time to frequency domain
+        print('Converting from time to frequency domain')
+        data_freq = convert_time_to_frequency(data_time)
 
-# stack images into a single array
-images = np.vstack((images_T_T_T, images_F_T_T, images_T_F_F, images_F_F_F, images_T_F_T, images_F_F_T, images_T_T_F, images_F_T_F))
+        savemat('ucieeg_freq.mat', {'data_freq': data_freq, 'df': df})
+        df.to_csv(os.path.join(path_dataset, 'conditional_data.csv'), index=False)
 
-# print('Displaying images')
-# for i in range(5):
-#     plt.figure()
-#     plt.imshow(images_F_F_F[i])
-#     plt.show()
+    # convert 3d locations of electrodes to 2d
+    locs_2d = get_2d_electrode_locations(path_dataset)
 
-# generate labels ((1, 3))
-labels_T_T_T = np.repeat(np.array([[1, 1, 1, 0]]), len(images_T_T_T), axis=0)
-labels_F_T_T = np.repeat(np.array([[0, 1, 1, 1]]), len(images_F_T_T), axis=0)
-labels_T_F_F = np.repeat(np.array([[1, 0, 0, 2]]), len(images_T_F_F), axis=0)
-labels_F_F_F = np.repeat(np.array([[0, 0, 0, 3]]), len(images_F_F_F), axis=0)
-labels_T_F_T = np.repeat(np.array([[1, 0, 1, 4]]), len(images_T_F_T), axis=0)
-labels_F_F_T = np.repeat(np.array([[0, 0, 1, 5]]), len(images_F_F_T), axis=0)
-labels_T_T_F = np.repeat(np.array([[1, 1, 0, 6]]), len(images_T_T_F), axis=0)
-labels_F_T_F = np.repeat(np.array([[0, 1, 0, 7]]), len(images_F_T_F), axis=0)
+    print('Creating synthetic conditioned data')
+    synthetic_dummy_data = create_synthetic_dummy_data(df, data_freq, samples_per_category, window_size)
 
-# stack the labels into a single array
-labels = np.vstack((labels_T_T_T, labels_F_T_T, labels_T_F_F, labels_F_F_F, labels_T_F_T, labels_F_F_T, labels_T_T_F, labels_F_T_F))
+    print('Making frames')
+    # create frames (extracts only the theta, aplha and beta channels (3))
+    frames = [make_frames(data_current, 1) for data_current in synthetic_dummy_data]
 
-print('Saving images and labels')
-savemat('conditional_data.mat',
-        {
-            'images': images,
-            'labels': labels
-         })
+    # convert signals to RGB images
+    print('Generating images from signals')
+    images = [gen_images(locs_2d, image_current, frame_size, normalize=False) for image_current in frames]
 
-print('Save successful!')
+    # stack images into a single array
+    images = np.array(images).reshape(-1, frame_size, frame_size, num_channels)
+
+    # generate the labels [Alcoholism, Stimulus, Identity, Category(0-7)]
+    labels = generate_synthetic_dummy_labels(samples_per_category)
+
+    print('Saving images and labels')
+
+    save_filename = 'conditional_data.mat'
+    save_path_full = os.path.join(path_dataset, save_filename)
+    savemat(save_path_full,
+            {
+                'images': images,
+                'labels': labels
+            })
+
+    print('Save successful!')
+
+if __name__=='__main__':
+    generate_synthetic_data()
