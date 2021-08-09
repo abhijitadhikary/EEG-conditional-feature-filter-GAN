@@ -49,6 +49,8 @@ class TrainOptions(BaseOptions):
 
         self.parser.add_argument('--feature', type=str, default=None,
                                  help='select a feature type to put semantic constraints on: alcoholism|stimulus|combined')
-        self.parser.add_argument('--num_classes', type=int, default=2, help='how many classes does the feature has')
+        self.parser.add_argument('--num_classes', type=int, default=8, help='how many classes does the feature has')
+        self.parser.add_argument('--num_channels', type=int, default=3, help='how many channels does the feature has')
+        self.parser.add_argument('--classifier_name', type=str, default='ResNet34', help='which classifier to use')
         self.isTrain = True
 

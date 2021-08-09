@@ -5,6 +5,7 @@ import functools
 from torch.optim import lr_scheduler
 # from torchsummary import summary
 import numpy as np
+from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
 
 ###############################################################################
@@ -128,7 +129,24 @@ def define_C(output_nc, num_classes, ndf, init_type='normal', gpu_ids=[]):
     # else:
     #    Exception('classifier only implemented for 32x32x3 images')
     netC = Classifier(output_nc, num_classes, ndf)
+    netC = create_model_classifier('ResNet34', num_classes)
     return init_net(netC, init_type, gpu_ids)
+
+def create_model_classifier(classifier_name, num_classes):
+    model = None
+    if classifier_name == 'ResNet18':
+        model = ResNet18(num_classes)
+    elif classifier_name == 'ResNet34':
+        model = ResNet34(num_classes)
+    elif classifier_name == 'ResNet50':
+        model = ResNet50(num_classes)
+    elif classifier_name == 'ResNet101':
+        model = ResNet101(num_classes)
+    elif classifier_name == 'ResNet152':
+        model = ResNet152(num_classes)
+    else:
+        raise NotImplementedError(f'classifier_name [{classifier_name}] not implemented.')
+    return model
 
 
 ##############################################################################

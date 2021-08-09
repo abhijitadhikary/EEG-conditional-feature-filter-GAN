@@ -9,21 +9,21 @@ class CreateDataset(Dataset):
         self.num_samples = len(self.features)
         self.num_classes = 8
 
-    def get_conditioned_feature(self, feature, label):
-        num_channels, height, width = feature.shape
-
-        feature_con = torch.ones((num_channels + self.num_classes, height, width), dtype=torch.float32)
-        feature_con[:num_channels] = feature
-
-        for index in range(self.num_classes):
-            if index == label.item():
-                label_multiplier = 0.9
-            else:
-                label_multiplier = 0.1
-            current_channel = torch.ones((height, width)) * label_multiplier
-            feature_con[index+num_channels] = current_channel
-
-        return feature_con
+    # def cat_con_feature(self, feature, label):
+    #     num_channels, height, width = feature.shape
+    #
+    #     feature_con = torch.ones((num_channels + self.num_classes, height, width), dtype=torch.float32)
+    #     feature_con[:num_channels] = feature
+    #
+    #     for index in range(self.num_classes):
+    #         if index == label.item():
+    #             label_multiplier = 0.9
+    #         else:
+    #             label_multiplier = 0.1
+    #         current_channel = torch.ones((height, width)) * label_multiplier
+    #         feature_con[index+num_channels] = current_channel
+    #
+    #     return feature_con
 
 
     def get_one_hot_label(self, label):
@@ -35,9 +35,9 @@ class CreateDataset(Dataset):
         feature = self.features[index]
         label = self.labels[index]
         # label_one_hot = self.get_one_hot_label(label)
-        feature_con = self.get_conditioned_feature(feature, label)
+        # feature_con = self.cat_con_feature(feature, label)
 
-        return feature_con, label
+        return feature, label
 
     # a function to get items by index
     def __getitem__(self, index_A):
