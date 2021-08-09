@@ -7,7 +7,6 @@ import os
 
 #os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
-
 if __name__ == '__main__':
     opt = TrainOptions().parse()
     data_loader = CreateDataLoader(opt)

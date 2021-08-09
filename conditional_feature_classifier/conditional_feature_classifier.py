@@ -9,11 +9,11 @@ import os
 import argparse
 from models.resnet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 from utils.utils import create_dirs
-from feature_classifier_conditional.create_dataset import CreateDataset
-from feature_classifier_conditional.forward_pass import forward_pass
+from conditional_feature_classifier.create_dataset import CreateDataset
+from conditional_feature_classifier.forward_pass import forward_pass
 
 
-class FeatureClassifierConditional():
+class ConditionalFeatureClassifier():
     def __init__(self):
         self.args = argparse.Namespace()
         self.args.seed = 1324
@@ -34,7 +34,7 @@ class FeatureClassifierConditional():
         self.set_device()
         self.set_model_options()
         self.load_model()
-        self.args.checkpoint_path = os.path.join('.', 'feature_classifier_conditional', 'checkpoints', self.args.feature, self.args.model_name)
+        self.args.checkpoint_path = os.path.join('.', 'conditional_feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
         self.create_dirs()
 
     def set_hyperparameters(self):
@@ -230,9 +230,9 @@ class FeatureClassifierConditional():
 
     def create_dirs(self):
         dir_list = [
-            ['.', 'feature_classifier_conditional'],
-            ['.', 'feature_classifier_conditional', 'checkpoints'],
-            ['.', 'feature_classifier_conditional', 'checkpoints', self.args.feature, self.args.model_name]
+            ['.', 'conditional_feature_classifier'],
+            ['.', 'conditional_feature_classifier', 'checkpoints'],
+            ['.', 'conditional_feature_classifier', 'checkpoints', self.args.feature, self.args.model_name]
         ]
         create_dirs(dir_list)
 
