@@ -7,7 +7,7 @@ import numpy as np
 
 class EEGDatasetConditional(BaseDataset):
     def name(self):
-        return 'EEGDataset'
+        return 'EEGDatasetConditional'
 
     def initialize(self, opt):
         self.opt = opt

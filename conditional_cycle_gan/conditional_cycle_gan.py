@@ -62,11 +62,11 @@ class ConditionalCycleGAN:
 
     def train(self):
         opt = TrainOptions().parse()
-        data_loader = CreateDataLoader(opt)
-        dataset = data_loader.load_data()
-        dataset_size = len(data_loader)
-        print('#training images = %d' % dataset_size)
-        # dataset = self.dataloader_train
+        # data_loader = CreateDataLoader(opt)
+        # dataset = data_loader.load_data()
+        # dataset_size = len(data_loader)
+        # print('#training images = %d' % dataset_size)
+        dataset = self.dataloader_train
 
         model = self.create_model(opt)
         model.setup(opt)

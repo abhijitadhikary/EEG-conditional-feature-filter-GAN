@@ -13,7 +13,7 @@ def CreateDataset(opt):
     if opt.dataset_mode == 'EEG':
         from data.eeg_dataset import EEGDataset
         dataset = EEGDataset()
-    if opt.dataset_mode == 'EEG_conditional':
+    elif opt.dataset_mode == 'EEG_conditional':
         from conditional_cycle_gan.eeg_dataset import EEGDatasetConditional
         dataset = EEGDatasetConditional()
     else:

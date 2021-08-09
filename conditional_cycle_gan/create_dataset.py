@@ -6,14 +6,62 @@ class CreateDataset(Dataset):
     def __init__(self, features, labels):
         self.features = torch.tensor(features, dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.int64)
+        self.num_samples = len(self.features)
+        self.num_classes = 8
+
+    def get_conditioned_feature(self, feature, label):
+        num_channels, height, width = feature.shape
+
+        feature_con = torch.ones((num_channels + self.num_classes, height, width), dtype=torch.float32)
+        feature_con[:num_channels] = feature
+
+        for index in range(self.num_classes):
+            if index == label.item():
+                label_multiplier = 0.9
+            else:
+                label_multiplier = 0.1
+            current_channel = torch.ones((height, width)) * label_multiplier
+            feature_con[index+num_channels] = current_channel
+
+        return feature_con
+
+
+    def get_one_hot_label(self, label):
+        label_one_hot = np.zeros(self.num_classes)
+        label_one_hot[label] = 1
+        return label_one_hot
+
+    def get_conditioned_item(self, index):
+        feature = self.features[index]
+        label = self.labels[index]
+        # label_one_hot = self.get_one_hot_label(label)
+        feature_con = self.get_conditioned_feature(feature, label)
+
+        return feature_con, label
 
     # a function to get items by index
-    def __getitem__(self, index):
-        feature_current = self.features[index]
-        label_current = self.labels[index]
-        return feature_current, label_current
+    def __getitem__(self, index_A):
+        '''
+            for any given index_A, randomly choose another index_B and return the corresponding items
+        '''
+        index_B = np.random.randint(self.num_samples)
+
+        feature_A, label_A = self.get_conditioned_item(index_A)
+        feature_B, label_B = self.get_conditioned_item(index_B)
+
+        item = {}
+        item.update({
+            'A': feature_A,
+            'A_label': label_A
+        })
+
+        item.update({
+            'B': feature_B,
+            'B_label': label_B
+        })
+
+        return item
 
     # a function to count samples
     def __len__(self):
-        num_samples = len(self.features)
-        return num_samples
+        return self.num_samples
