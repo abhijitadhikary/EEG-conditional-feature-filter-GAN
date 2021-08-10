@@ -59,6 +59,16 @@ class Visualizer():
     def reset(self):
         self.saved = False
 
+    def convert(self, source, min_value=-1, max_value=1):
+        smin = source.min()
+        smax = source.max()
+
+        a = (max_value - min_value) / (smax - smin)
+        b = max_value - a * smax
+        target = (a * source + b).astype(source.dtype)
+
+        return target
+
     # |visuals|: dictionary of images to display or save
     def display_current_results(self, visuals, epoch, save_result):
         if self.display_id > 0:  # show images in the browser
@@ -77,6 +87,7 @@ class Visualizer():
                 idx = 0
                 for label, image in visuals.items():
                     image_numpy = utils.tensor2im(image)
+                    image_numpy = self.convert(image_numpy, 0, 255)
                     label_html_row += '<td>%s</td>' % label
                     images.append(image_numpy.transpose([2, 0, 1]))
                     idx += 1

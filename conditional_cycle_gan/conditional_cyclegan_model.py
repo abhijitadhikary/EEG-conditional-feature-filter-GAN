@@ -33,15 +33,15 @@ class ConditionalCycleGANModel(BaseModel):
         # load/define networks
         # The naming conversion is different from those used in the paper
         # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+        use_sigmoid = True if opt.gan_loss_type == 'mse' else False
         self.netG_AtoB = networks.define_G(opt.input_nc, opt.output_nc,
                                            opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type,
-                                           self.gpu_ids)
+                                           self.gpu_ids, normalize_output=use_sigmoid)
         self.netG_BtoA = networks.define_G(opt.input_nc, opt.output_nc,
                                            opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type,
-                                           self.gpu_ids)
+                                           self.gpu_ids, normalize_output=use_sigmoid)
 
         if self.isTrain:
-            use_sigmoid = opt.no_lsgan
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf,
                                             opt.which_model_netD,
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, self.gpu_ids)
@@ -56,7 +56,7 @@ class ConditionalCycleGANModel(BaseModel):
             self.fake_A_pool = ImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
-            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
+            self.criterionGAN = networks.GANLoss(gan_loss_type=opt.gan_loss_type).to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             self.criterionCls = torch.nn.CrossEntropyLoss()
@@ -92,10 +92,10 @@ class ConditionalCycleGANModel(BaseModel):
 
         for index_batch in range(batch_size):
 
-            feature_con[index_batch, :num_channels] = feature
+            feature_con[index_batch, :num_channels] = feature[index_batch]
 
             for index in range(self.num_classes):
-                if index == label.item():
+                if index == label[index_batch].item():
                     label_multiplier = 0.9
                 else:
                     label_multiplier = 0.1
@@ -115,42 +115,9 @@ class ConditionalCycleGANModel(BaseModel):
         self.cls_B_fake = self.netCls_B(self.fake_B)
         self.cls_B_rec = self.netCls_B(self.rec_B)
 
-        self.cls_A_real = self.netCls_B(self.real_A)
-        self.cls_A_fake = self.netCls_B(self.fake_A)
-        self.cls_A_rec = self.netCls_B(self.rec_A)
-
-        # self.fake_B = self.netG_AtoB(self.real_A)
-        # # self.cls_B = self.netCls_B(self.fake_B)
-        # self.rec_A = self.netG_BtoA(self.fake_B)
-        #
-        # self.fake_A = self.netG_BtoA(self.real_B)
-        # # self.cls_A = self.netCls_A(self.fake_A)
-        # self.rec_B = self.netG_AtoB(self.fake_A)
-
-    def backward_D_basic(self, netD, real, fake):
-        # Real
-        pred_real = netD(real)
-        loss_D_real = self.criterionGAN(pred_real, True)
-        # Fake
-        pred_fake = netD(fake.detach())
-        loss_D_fake = self.criterionGAN(pred_fake, False)
-        # Combined loss
-        loss_D = (loss_D_real + loss_D_fake) * 0.5
-        # backward
-        loss_D.backward()
-        return loss_D
-
-    def backward_Cls_basic(self, netCls, real, fake):
-        # TODO update for the classification loss
-        pass
-
-    def backward_D_A(self):
-        fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_B = self.backward_D_basic(self.netD_B, self.real_B, fake_B)
-
-    def backward_D_B(self):
-        fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_A, fake_A)
+        self.cls_A_real = self.netCls_A(self.real_A)
+        self.cls_A_fake = self.netCls_A(self.fake_A)
+        self.cls_A_rec = self.netCls_A(self.rec_A)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
@@ -194,17 +161,62 @@ class ConditionalCycleGANModel(BaseModel):
 
         self.loss_G.backward()
 
+    def backward_D_basic(self, netD, real, fake):
+
+        # Real
+        pred_real = netD(real)
+
+        # Fake
+        pred_fake = netD(fake.detach())
+
+        # wasserestein GAN
+        if self.opt.gan_loss_type == 'w':
+            loss_D = -(torch.mean(pred_real) - torch.mean(pred_fake))
+        else:
+
+            loss_D_real = self.criterionGAN(pred_real, True)
+            loss_D_fake = self.criterionGAN(pred_fake, False)
+
+            # Combined loss
+            loss_D = (loss_D_real + loss_D_fake) * 0.5
+        # backward
+        loss_D.backward()
+        return loss_D
+
+    def backward_D_A(self):
+        fake_B = self.fake_B_pool.query(self.fake_B)
+        self.loss_D_B = self.backward_D_basic(self.netD_B, self.real_B, fake_B)
+
+    def backward_D_B(self):
+        fake_A = self.fake_A_pool.query(self.fake_A)
+        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_A, fake_A)
+
+    def clip_D_grads(self):
+        if self.opt.gan_loss_type == 'w':
+            for p in self.netD_A.parameters():
+                p.data.clamp_(-0.01, 0.01)
+
+            for p in self.netD_B.parameters():
+                p.data.clamp_(-0.01, 0.01)
+
     def optimize_parameters(self):
         # forward
         self.forward()
+
         # G_A and G_B
         self.set_requires_grad([self.netD_A, self.netD_B], False)
         self.optimizer_G.zero_grad()
+        self.optimizer_cls.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
-        # D_A and D_B
-        self.set_requires_grad([self.netD_A, self.netD_B], True)
-        self.optimizer_D.zero_grad()
-        self.backward_D_A()
-        self.backward_D_B()
-        self.optimizer_D.step()
+        self.optimizer_cls.step()
+
+        for _ in range(self.opt.num_D_loops):
+            # D_A and D_B
+            self.set_requires_grad([self.netD_A, self.netD_B], True)
+            self.optimizer_D.zero_grad()
+            self.backward_D_A()
+            self.backward_D_B()
+            self.optimizer_D.step()
+
+            self.clip_D_grads()

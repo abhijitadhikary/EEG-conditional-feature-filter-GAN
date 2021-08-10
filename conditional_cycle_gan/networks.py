@@ -83,15 +83,15 @@ def print_network(net):
 
 
 def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, init_type='normal',
-             gpu_ids=[]):
+             gpu_ids=[], normalize_output=True):
     netG = None
     norm_layer = get_norm_layer(norm_type=norm)
     print(which_model_netG)
 
     if which_model_netG == 'resnet_9blocks':
-        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9)
+        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, normalize_output=normalize_output)
     elif which_model_netG == 'resnet_6blocks':
-        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
+        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, normalize_output=normalize_output)
     elif which_model_netG == 'unet_128':
         netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif which_model_netG == 'unet_256':
@@ -159,14 +159,22 @@ def create_model_classifier(classifier_name, num_classes):
 # but it abstracts away the need to create the target label tensor
 # that has the same size as the input
 class GANLoss(nn.Module):
-    def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0):
+    def __init__(self, gan_loss_type='mse', target_real_label=1.0, target_fake_label=0.0):
         super(GANLoss, self).__init__()
+        # TODO update 1.0 and 0.0s to add noise
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
-        if use_lsgan:
+        if gan_loss_type == 'mse':
             self.loss = nn.MSELoss()
-        else:
+        elif gan_loss_type == 'bce':
             self.loss = nn.BCELoss()
+        elif gan_loss_type == 'w':
+            self.loss = self.w_loss
+        else:
+            raise NotImplementedError('Invalid gan loss type')
+
+    def w_loss(self, input, target):
+        return -torch.mean(input)
 
     def get_target_tensor(self, input, target_is_real):
         if target_is_real:
@@ -186,7 +194,7 @@ class GANLoss(nn.Module):
 # https://github.com/jcjohnson/fast-neural-style/
 class ResnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6,
-                 padding_type='reflect'):
+                 padding_type='reflect', normalize_output=True):
         assert (n_blocks >= 0)
         super(ResnetGenerator, self).__init__()
         self.input_nc = input_nc
@@ -226,7 +234,8 @@ class ResnetGenerator(nn.Module):
                       nn.ReLU(True)]
         model += [nn.ReflectionPad2d(3)]
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
-        model += [nn.Tanh()]
+        if normalize_output:
+            model += [nn.Tanh()]
 
         self.model = nn.Sequential(*model)
 

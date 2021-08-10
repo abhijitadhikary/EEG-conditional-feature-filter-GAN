@@ -4,7 +4,7 @@ import numpy as np
 
 class CreateDataset(Dataset):
     def __init__(self, features, labels):
-        self.features = torch.tensor(features, dtype=torch.float32)
+        self.features = torch.tensor(self.convert(features, -1, 1), dtype=torch.float32)
         self.labels = torch.tensor(labels, dtype=torch.int64)
         self.num_samples = len(self.features)
         self.num_classes = 8
@@ -65,3 +65,13 @@ class CreateDataset(Dataset):
     # a function to count samples
     def __len__(self):
         return self.num_samples
+
+    def convert(self, source, min_value=-1, max_value=1):
+        smin = source.min()
+        smax = source.max()
+
+        a = (max_value - min_value) / (smax - smin)
+        b = max_value - a * smax
+        target = (a * source + b).astype(source.dtype)
+
+        return target

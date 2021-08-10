@@ -4,10 +4,11 @@ import numpy as np
 import os
 import scipy.io as sio
 import time
-from utils.visualizer import Visualizer
+# from utils.visualizer import Visualizer
 from conditional_cycle_gan.create_dataset import CreateDataset
 from conditional_cycle_gan.train_options import TrainOptions
 from conditional_cycle_gan.conditional_cyclegan_model import ConditionalCycleGANModel
+from torch.utils.tensorboard import SummaryWriter
 from conditional_cycle_gan.create_dataloader import CreateDataLoader
 # from conditional_cycle_gan.
 
@@ -15,7 +16,7 @@ class ConditionalCycleGAN:
     def __init__(self):
         self.args = argparse.Namespace()
         self.args.seed = 1324
-        self.args.batch_size = 1
+        self.args.batch_size = 20
         self.args.split_mode = 'within'
         self.args.dataset_path = os.path.join('datasets', 'eeg')
         self.create_dataloaders()
@@ -54,68 +55,56 @@ class ConditionalCycleGAN:
         model = None
         model = ConditionalCycleGANModel()
         model.initialize(opt)
-        print("model [%s] was created" % (model.name()))
+        print(f'model [{model.name()}] was created')
         return model
 
+    def create_dirs(self, dir_list):
+        for current_dir in dir_list:
+            current_path = current_dir[0]
+            if len(current_dir) > 1:
+                for sub_dir_index in range(1, len(current_dir)):
+                    current_path = os.path.join(current_path, current_dir[sub_dir_index])
+            if not os.path.exists(current_path):
+                os.makedirs(current_path)
 
-    def parse(self):
-        self.isTrain = True
+    def create_tensorboard(self, opt):
+        writer_path = os.path.join('conditional_cycle_gan', 'runs', f'{opt.name}')
+        self.create_dirs([writer_path])
+        self.writer = SummaryWriter(writer_path)
+
+    def print_current_losses(self, epoch, index_batch, index_step, losses):
+        message = f'(Epoch: {epoch}, Batch: {index_batch}, Step: {index_step}'
+        for k, v in losses.items():
+            message += f'  {k}: {v:.3f}'
+        print(message)
+
+    def update_tensorboard(self, losses, index_epoch):
+        self.writer.add_scalars('Loss', losses, index_epoch + 1)
 
     def train(self):
         opt = TrainOptions().parse()
-        # data_loader = CreateDataLoader(opt)
-        # dataset = data_loader.load_data()
-        # dataset_size = len(data_loader)
-        # print('#training images = %d' % dataset_size)
-        dataset = self.dataloader_train
-        dataset_size = len(dataset)
-
+        dataloader = self.dataloader_train
         model = self.create_model(opt)
         model.setup(opt)
-        visualizer = Visualizer(opt)
-        total_steps = 0
+        self.create_tensorboard(opt)
 
-        for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
+        index_step = 0
+        for index_epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             epoch_start_time = time.time()
-            iter_data_time = time.time()
-            epoch_iter = 0
-
-            for i, data in enumerate(dataset):
-                iter_start_time = time.time()
-
-                if total_steps % opt.print_freq == 0:
-                    t_data = iter_start_time - iter_data_time
-
-                visualizer.reset()
-                total_steps += opt.batchSize
-                epoch_iter += opt.batchSize
-
+            for index_batch, data in enumerate(dataloader):
                 model.set_input(data)
-
                 model.optimize_parameters()
 
-                if total_steps % opt.display_freq == 0:
-                    save_result = total_steps % opt.update_html_freq == 0
-                    visualizer.display_current_results(model.get_current_visuals(), epoch, save_result)
+                losses = model.get_current_losses()
+                self.print_current_losses(index_epoch, index_batch, index_step, losses)
+                self.update_tensorboard(losses, index_batch)
+                index_step += 1
 
-                if total_steps % opt.print_freq == 0:
-                    losses = model.get_current_losses()
-                    t = (time.time() - iter_start_time) / opt.batchSize
-                    visualizer.print_current_losses(epoch, epoch_iter, losses, t, t_data)
-                    if opt.display_id > 0:
-                        visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, opt, losses)
-
-                if total_steps % opt.save_latest_freq == 0:
-                    print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
-                    # model.save_networks('latest')
-
-                iter_data_time = time.time()
-
-            if epoch % opt.save_epoch_freq == 0:
-                print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
+            if index_epoch % opt.save_epoch_freq == 0:
+                print(f'Saving at epoch: {index_epoch}')
                 # model.save_networks('latest')
-                # model.save_networks(epoch)
+                # model.save_networks(index_epoch)
 
-            print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
+            print('End of index_epoch %d / %d \t Time Taken: %d sec' % (index_epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
             model.update_learning_rate()
