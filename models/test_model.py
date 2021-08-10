@@ -11,7 +11,7 @@ class TestModel(BaseModel):
         return 'TestModel'
 
     def initialize(self, opt):
-        assert(not opt.isTrain)
+        assert(not opt.is_train)
         BaseModel.initialize(self, opt)
 
         # specify the training losses you want to print out. The program will call base_model.get_current_losses

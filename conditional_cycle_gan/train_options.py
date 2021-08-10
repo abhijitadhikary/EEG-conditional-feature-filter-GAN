@@ -30,7 +30,7 @@ class TrainOptions():
                                  help='selects model to use for netG')
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        self.parser.add_argument('--name', type=str, default='experiment_name',
+        self.parser.add_argument('--name', type=str, default='baseline',
                                  help='name of the experiment. It decides where to store samples and models')
         self.parser.add_argument('--dataset_mode', type=str, default='EEG_conditional',
                                  help='chooses how datasets are loaded. [unaligned | aligned | single | EEG_conditional]')
@@ -38,7 +38,7 @@ class TrainOptions():
                                  help='chooses which model to use. cycle_gan, pix2pix, test')
         self.parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
         self.parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
-        self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
+        self.parser.add_argument('--checkpoints_dir', type=str, default=os.path.join('conditional_cycle_gan', 'checkpoints'), help='models are saved here')
         self.parser.add_argument('--norm', type=str, default='instance',
                                  help='instance normalization or batch normalization')
         self.parser.add_argument('--serial_batches', action='store_true',
@@ -117,13 +117,13 @@ class TrainOptions():
         self.parser.add_argument('--classifier_name', type=str, default='ResNet34', help='which classifier to use')
         self.parser.add_argument('--gan_loss_type', type=str, default='w', help='| w, mse, bce| which loss to use for generator')
         self.parser.add_argument('--num_D_loops', type=int, default=10, help='how many more times to train the discriminator than the generator')
-        self.isTrain = True
+        self.is_train = True
 
     def parse(self):
         if not self.initialized:
             self.initialize()
         opt = self.parser.parse_args()
-        opt.isTrain = self.isTrain   # train or test
+        opt.is_train = self.is_train   # train or test
 
         str_ids = opt.gpu_ids.split(',')
         opt.gpu_ids = []

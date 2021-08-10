@@ -42,8 +42,6 @@ class ConditionalCycleGAN:
             dataset = CreateDataset(images, labels)
             datasets.append(dataset)
 
-        # features, labels, features_val, labels_val, features_test, labels_test = self.process_conditional_features(data)
-
         # create dataloders
         self.dataloader_train = torch.utils.data.DataLoader(datasets[0], batch_size=self.args.batch_size, shuffle=True)
 
@@ -95,6 +93,10 @@ class ConditionalCycleGAN:
                 model.set_input(data)
                 model.optimize_parameters()
 
+                # load model
+                # model.load_networks(index_epoch)
+                # print('Model Loaded')
+
                 losses = model.get_current_losses()
                 self.print_current_losses(index_epoch, index_batch, index_step, losses)
                 self.update_tensorboard(losses, index_batch)
@@ -102,9 +104,8 @@ class ConditionalCycleGAN:
 
             if index_epoch % opt.save_epoch_freq == 0:
                 print(f'Saving at epoch: {index_epoch}')
-                # model.save_networks('latest')
-                # model.save_networks(index_epoch)
+                model.save_networks(index_epoch)
 
-            print('End of index_epoch %d / %d \t Time Taken: %d sec' % (index_epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
+            print(f'End of index_epoch {index_epoch} / {opt.niter} \t Time Taken: {time.time() - epoch_start_time} sec')
 
             model.update_learning_rate()

@@ -11,7 +11,7 @@ class BaseModel():
     def initialize(self, opt):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
-        self.isTrain = opt.isTrain
+        self.is_train = opt.is_train
         self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
         if opt.resize_or_crop != 'scale_width':
@@ -29,10 +29,10 @@ class BaseModel():
 
     # load and print networks; create shedulars
     def setup(self, opt):
-        if self.isTrain:
+        if self.is_train:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
 
-        if not self.isTrain or opt.continue_train:
+        if not self.is_train or opt.continue_train:
             self.load_networks(opt.which_epoch)
         self.print_networks(opt.verbose)
 
@@ -84,9 +84,9 @@ class BaseModel():
     def save_networks(self, which_epoch):
         for name in self.model_names:
             if isinstance(name, str):
-                save_filename = '%s_net_%s.pth' % (which_epoch, name)
+                save_filename = f'{which_epoch}_net_{name}.pth'
                 save_path = os.path.join(self.save_dir, save_filename)
-                net = getattr(self, 'net' + name)
+                net = getattr(self, 'net_' + name)
 
                 if len(self.gpu_ids) > 0 and torch.cuda.is_available():
                     torch.save(net.module.cpu().state_dict(), save_path)
@@ -110,7 +110,7 @@ class BaseModel():
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (which_epoch, name)
                 load_path = os.path.join(self.save_dir, load_filename)
-                net = getattr(self, 'net' + name)
+                net = getattr(self, 'net_' + name)
                 if isinstance(net, torch.nn.DataParallel):
                     net = net.module
                 print('loading the model from %s' % load_path)
@@ -127,7 +127,7 @@ class BaseModel():
         print('---------- Networks initialized -------------')
         for name in self.model_names:
             if isinstance(name, str):
-                net = getattr(self, 'net' + name)
+                net = getattr(self, 'net_' + name)
                 num_params = 0
                 for param in net.parameters():
                     num_params += param.numel()

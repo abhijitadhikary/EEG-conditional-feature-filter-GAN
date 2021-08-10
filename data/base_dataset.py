@@ -30,7 +30,7 @@ def get_transform(opt):
             lambda img: __scale_width(img, opt.loadSize)))
         transform_list.append(transforms.RandomCrop(opt.fineSize))
 
-    if opt.isTrain and not opt.no_flip:
+    if opt.is_train and not opt.no_flip:
         transform_list.append(transforms.RandomHorizontalFlip())
 
     transform_list += [transforms.ToTensor(),
