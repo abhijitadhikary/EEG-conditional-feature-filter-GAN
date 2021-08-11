@@ -4,6 +4,7 @@ import numpy as np
 import os
 import scipy.io as sio
 import time
+from torchvision.utils import make_grid, save_image
 # from utils.visualizer import Visualizer
 from conditional_cycle_gan.create_dataset import CreateDataset
 from conditional_cycle_gan.train_options import TrainOptions
@@ -55,7 +56,11 @@ class ConditionalCycleGAN:
         self.model.initialize(opt)
         print(f'model [{self.model.name()}] was created')
 
-    def create_dirs(self, dir_list):
+    def create_dirs(self):
+        dir_list = [
+            ['.', 'conditional_cycle_gan', 'runs'],
+            ['.', 'conditional_cycle_gan', 'output'],
+        ]
         for current_dir in dir_list:
             current_path = current_dir[0]
             if len(current_dir) > 1:
@@ -65,8 +70,8 @@ class ConditionalCycleGAN:
                 os.makedirs(current_path)
 
     def create_tensorboard(self, opt):
-        writer_path = os.path.join('.', 'conditional_cycle_gan', 'runs', f'{opt.name}')
-        self.create_dirs([writer_path])
+        writer_path = os.path.join(f'{opt.tensorboard_path}', f'{opt.name}')
+        # self.create_dirs([writer_path])
         self.writer = SummaryWriter(writer_path)
 
     def print_current_losses(self, epoch, epoch_end, index_batch, num_batches, index_step, losses):
@@ -79,6 +84,7 @@ class ConditionalCycleGAN:
         self.writer.add_scalars('Loss', losses, index + 1)
 
     def train(self):
+        self.create_dirs()
         opt = TrainOptions().parse()
         dataloader = self.dataloader_train
         self.create_model(opt)
@@ -114,6 +120,31 @@ class ConditionalCycleGAN:
                 # acc_batch_B = self.model.correct_batch_B / num_samples_batch
                 correct_epoch_A += self.model.correct_batch_A
                 correct_epoch_B += self.model.correct_batch_B
+
+                # ------------------------------------------------------------------------------------------------------
+                self.model.save_networks(index_step)
+                if index_batch % 1 == 0:
+                    num_display = 8
+                    mode = 'train'
+                    img_grid_real_A = make_grid(self.model.real_A[:num_display], normalize=True, range=(0, 1))
+                    img_grid_fake_A = make_grid(self.model.fake_A[:num_display], normalize=True, range=(0, 1))
+                    img_grid_rec_A = make_grid(self.model.rec_A[:num_display], normalize=True, range=(0, 1))
+                    img_grid_idt_A = make_grid(self.model.idt_A[:num_display], normalize=True, range=(0, 1))
+
+
+                    img_grid_real_B = make_grid(self.model.real_B[:num_display], normalize=True, range=(0, 1))
+                    img_grid_fake_B = make_grid(self.model.fake_B[:num_display], normalize=True, range=(0, 1))
+                    img_grid_rec_B = make_grid(self.model.rec_B[:num_display], normalize=True, range=(0, 1))
+                    img_grid_idt_B = make_grid(self.model.idt_B[:num_display], normalize=True, range=(0, 1))
+
+                    # combine the grids
+                    img_grid_combined = torch.hstack((
+                        img_grid_real_A, img_grid_fake_B, img_grid_rec_A, img_grid_idt_A,
+                        img_grid_real_B, img_grid_fake_B, img_grid_rec_B, img_grid_idt_B,
+                    ))
+                    output_path_full = os.path.join(f'{opt.output_path}', f'{index_epoch}_{index_batch}_{mode}.jpg')
+                    save_image(img_grid_combined, output_path_full)
+                # ------------------------------------------------------------------------------------------------------
 
 
                 print(f'   Correct - Batch\t\tA: [{self.model.correct_batch_A} / {num_samples_batch}]\t'

@@ -115,8 +115,10 @@ class TrainOptions():
         self.parser.add_argument('--num_classes', type=int, default=8, help='how many classes does the feature has')
         self.parser.add_argument('--num_channels', type=int, default=3, help='how many channels does the feature has')
         self.parser.add_argument('--classifier_name', type=str, default='ResNet34', help='which classifier to use')
-        self.parser.add_argument('--gan_loss_type', type=str, default='w', help='| w, mse, bce| which loss to use for generator')
+        self.parser.add_argument('--gan_loss_type', type=str, default='mse', help='| w, mse, bce| which loss to use for generator')
         self.parser.add_argument('--num_D_loops', type=int, default=10, help='how many more times to train the discriminator than the generator')
+        self.parser.add_argument('--output_path', type=str, default=os.path.join('conditional_cycle_gan', 'output'), help='directory to save the images')
+        self.parser.add_argument('--tensorboard_path', type=str, default=os.path.join('conditional_cycle_gan', 'runs'), help='directory to save the images')
         self.is_train = True
 
     def parse(self):
