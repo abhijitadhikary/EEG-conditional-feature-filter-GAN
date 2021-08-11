@@ -50,11 +50,10 @@ class ConditionalCycleGAN:
         self.dataloader_test = torch.utils.data.DataLoader(datasets[2], batch_size=self.args.batch_size, shuffle=True)
 
     def create_model(self, opt):
-        model = None
-        model = ConditionalCycleGANModel()
-        model.initialize(opt)
-        print(f'model [{model.name()}] was created')
-        return model
+        self.model = None
+        self.model = ConditionalCycleGANModel()
+        self.model.initialize(opt)
+        print(f'model [{self.model.name()}] was created')
 
     def create_dirs(self, dir_list):
         for current_dir in dir_list:
@@ -66,46 +65,71 @@ class ConditionalCycleGAN:
                 os.makedirs(current_path)
 
     def create_tensorboard(self, opt):
-        writer_path = os.path.join('conditional_cycle_gan', 'runs', f'{opt.name}')
+        writer_path = os.path.join('.', 'conditional_cycle_gan', 'runs', f'{opt.name}')
         self.create_dirs([writer_path])
         self.writer = SummaryWriter(writer_path)
 
-    def print_current_losses(self, epoch, index_batch, index_step, losses):
-        message = f'(Epoch: {epoch}, Batch: {index_batch}, Step: {index_step}'
+    def print_current_losses(self, epoch, epoch_end, index_batch, num_batches, index_step, losses):
+        message = f'(Epoch: [{epoch} / {epoch_end-1}], Batch: [{index_batch} / {num_batches}], Step: {index_step}\n'
         for k, v in losses.items():
             message += f'  {k}: {v:.3f}'
         print(message)
 
-    def update_tensorboard(self, losses, index_epoch):
-        self.writer.add_scalars('Loss', losses, index_epoch + 1)
+    def update_tensorboard(self, losses, index):
+        self.writer.add_scalars('Loss', losses, index + 1)
 
     def train(self):
         opt = TrainOptions().parse()
         dataloader = self.dataloader_train
-        model = self.create_model(opt)
-        model.setup(opt)
+        self.create_model(opt)
+        self.model.setup(opt)
         self.create_tensorboard(opt)
 
         index_step = 0
-        for index_epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
+        epoch_start = opt.epoch_count
+        epoch_end = opt.niter + opt.niter_decay + 1
+        num_batches = len(dataloader)
+        for index_epoch in range(epoch_start, epoch_end):
             epoch_start_time = time.time()
+            num_samples_epoch = 0
+            correct_epoch_A = 0
+            correct_epoch_B = 0
             for index_batch, data in enumerate(dataloader):
-                model.set_input(data)
-                model.optimize_parameters()
+                num_samples_batch = len(data['A'])
+                num_samples_epoch += num_samples_batch
+
+                self.model.set_input(data)
+                self.model.optimize_parameters()
 
                 # load model
                 # model.load_networks(index_epoch)
                 # print('Model Loaded')
 
-                losses = model.get_current_losses()
-                self.print_current_losses(index_epoch, index_batch, index_step, losses)
-                self.update_tensorboard(losses, index_batch)
+                losses = self.model.get_current_losses()
+                self.print_current_losses(index_epoch, epoch_end, index_batch, num_batches, index_step, losses)
+                self.update_tensorboard(losses, index_step)
                 index_step += 1
+
+                # acc_batch_A = self.model.correct_batch_A / num_samples_batch
+                # acc_batch_B = self.model.correct_batch_B / num_samples_batch
+                correct_epoch_A += self.model.correct_batch_A
+                correct_epoch_B += self.model.correct_batch_B
+
+
+                print(f'   Correct - Batch\t\tA: [{self.model.correct_batch_A} / {num_samples_batch}]\t'
+                      f' {(self.model.correct_batch_A/num_samples_batch)*100:.3f} %\t\t'
+                      f'B: [{self.model.correct_batch_A} / {num_samples_batch}]\t'
+                      f' {(self.model.correct_batch_B/num_samples_batch)*100:.3f} %')
+
+            print(f'\nCorrect - Epoch\t\tA: [{correct_epoch_A} / {num_samples_epoch}]\t'
+                  f'{(correct_epoch_A/num_samples_epoch)*100:.3f} %\t\t'
+                  f'B: [{correct_epoch_B} / {num_samples_epoch}]\t'
+                  f'{(correct_epoch_B/num_samples_epoch)*100:.3f} %')
 
             if index_epoch % opt.save_epoch_freq == 0:
                 print(f'Saving at epoch: {index_epoch}')
-                model.save_networks(index_epoch)
+                self.model.save_networks(index_epoch)
 
             print(f'End of index_epoch {index_epoch} / {opt.niter} \t Time Taken: {time.time() - epoch_start_time} sec')
 
-            model.update_learning_rate()
+            self.model.update_learning_rate()

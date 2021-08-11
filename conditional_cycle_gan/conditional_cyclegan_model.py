@@ -1,5 +1,6 @@
 import torch
 import itertools
+import numpy as np
 from utils.image_pool import ImagePool
 from conditional_cycle_gan.base_model import BaseModel
 from conditional_cycle_gan import networks
@@ -10,6 +11,12 @@ class ConditionalCycleGANModel(BaseModel):
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
+
+        self.correct_batch_A = np.NINF
+        self.correct_batch_B = np.NINF
+
+        # self.acc_epoch_A = np.NINF
+        # self.acc_epoch_B = np.NINF
 
         self.num_classes = opt.num_classes
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
@@ -104,18 +111,20 @@ class ConditionalCycleGANModel(BaseModel):
         self.fake_A = self.net_G_BtoA(self.cat_con_feature(self.real_B, self.label_A))
         self.rec_B = self.net_G_AtoB(self.cat_con_feature(self.fake_A, self.label_B))
 
-        self.cls_B_real = self.net_cls_B(self.real_B)
+        # TODO look into this whether to run classifier on all three variants
+        self.cls_B_real = 0 # self.net_cls_B(self.real_B)
         self.cls_B_fake = self.net_cls_B(self.fake_B)
-        self.cls_B_rec = self.net_cls_B(self.rec_B)
+        self.cls_B_rec = 0 # self.net_cls_B(self.rec_B)
 
-        self.cls_A_real = self.net_cls_A(self.real_A)
+        self.cls_A_real = 0 # self.net_cls_A(self.real_A)
         self.cls_A_fake = self.net_cls_A(self.fake_A)
-        self.cls_A_rec = self.net_cls_A(self.rec_A)
+        self.cls_A_rec = 0 # self.net_cls_A(self.rec_A)
 
     def backward_G(self):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
+
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed.
@@ -142,13 +151,19 @@ class ConditionalCycleGANModel(BaseModel):
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
 
         # classification loss
-        self.loss_cls_A = self.criterionCls(self.cls_A_real, self.label_A.long()) \
-                          + self.criterionCls(self.cls_A_fake, self.label_A.long()) \
-                          + self.criterionCls(self.cls_A_rec, self.label_A.long())
+        # self.loss_cls_A = self.criterionCls(self.cls_A_real, self.label_A.long()) \
+        #                   + self.criterionCls(self.cls_A_fake, self.label_A.long()) \
+        #                   + self.criterionCls(self.cls_A_rec, self.label_A.long())
+        #
+        # self.loss_cls_B = self.criterionCls(self.cls_B_real, self.label_B.long()) \
+        #                   + self.criterionCls(self.cls_B_fake, self.label_B.long()) \
+        #                   + self.criterionCls(self.cls_B_rec , self.label_B.long())
 
-        self.loss_cls_B = self.criterionCls(self.cls_B_real, self.label_B.long()) \
-                          + self.criterionCls(self.cls_B_fake, self.label_B.long()) \
-                          + self.criterionCls(self.cls_B_rec , self.label_B.long())
+        self.loss_cls_A = self.criterionCls(self.cls_A_fake, self.label_A.long())
+        self.loss_cls_B = self.criterionCls(self.cls_B_fake, self.label_B.long())
+
+        self.correct_batch_A = torch.sum(torch.argmax(self.cls_A_fake, dim=1) == self.label_A.long()).item()
+        self.correct_batch_B = torch.sum(torch.argmax(self.cls_B_fake, dim=1) == self.label_B.long()).item()
 
         self.loss_G += self.loss_cls_A + self.loss_cls_B
 
