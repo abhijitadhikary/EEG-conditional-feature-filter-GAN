@@ -47,10 +47,10 @@ class ConditionalCycleGANModel(BaseModel):
                                             self.gpu_ids, normalize_output=use_sigmoid)
 
         if self.is_train:
-            self.net_D_A = networks.define_D(opt.output_nc, opt.ndf,
+            self.net_D_A = networks.define_D(opt.input_nc, opt.ndf,
                                              opt.which_model_netD,
                                              opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, self.gpu_ids)
-            self.net_D_B = networks.define_D(opt.output_nc, opt.ndf,
+            self.net_D_B = networks.define_D(opt.input_nc, opt.ndf,
                                              opt.which_model_netD,
                                              opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, self.gpu_ids)
             self.net_cls_A = networks.define_C(opt.num_channels, opt.num_classes, 32, opt.init_type, self.gpu_ids)
@@ -138,10 +138,10 @@ class ConditionalCycleGANModel(BaseModel):
             self.loss_idt_B = 0
 
         # GAN loss D_A(G_A(A))
-        D_B_fake = self.net_D_B(self.fake_B)
+        D_B_fake = self.net_D_B(self.cat_con_feature(self.fake_B, self.label_B))
         self.loss_G_B = self.criterionGAN(D_B_fake, True)
         # GAN loss D_B(G_B(B))
-        D_A_fake = self.net_D_A(self.fake_A)
+        D_A_fake = self.net_D_A(self.cat_con_feature(self.fake_A, self.label_A))
         self.loss_G_A = self.criterionGAN(D_A_fake, True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
@@ -181,7 +181,6 @@ class ConditionalCycleGANModel(BaseModel):
         if self.opt.gan_loss_type == 'w':
             loss_D = -(torch.mean(pred_real) - torch.mean(pred_fake))
         else:
-
             loss_D_real = self.criterionGAN(pred_real, True)
             loss_D_fake = self.criterionGAN(pred_fake, False)
 
@@ -192,12 +191,16 @@ class ConditionalCycleGANModel(BaseModel):
         return loss_D
 
     def backward_D_A(self):
-        fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_B = self.backward_D_basic(self.net_D_B, self.real_B, fake_B)
+        # TODO update pool with labels
+        # fake_B = self.fake_B_pool.query(self.fake_B)
+        fake_B = self.fake_B
+        self.loss_D_B = self.backward_D_basic(self.net_D_B, self.cat_con_feature(self.real_B, self.label_B), self.cat_con_feature(fake_B, self.label_B))
 
     def backward_D_B(self):
-        fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_A = self.backward_D_basic(self.net_D_A, self.real_A, fake_A)
+        # TODO update pool with labels
+        # fake_A = self.fake_A_pool.query(self.fake_A)
+        fake_A = self.fake_A
+        self.loss_D_A = self.backward_D_basic(self.net_D_A, self.cat_con_feature(self.real_A, self.label_A), self.cat_con_feature(fake_A, self.label_A))
 
     def clip_D_grads(self):
         if self.opt.gan_loss_type == 'w':
@@ -219,7 +222,8 @@ class ConditionalCycleGANModel(BaseModel):
         self.optimizer_G.step()
         self.optimizer_cls.step()
 
-        for _ in range(self.opt.num_D_loops):
+        # for _ in range(self.opt.num_D_loops):
+        for _ in range(1):
             # D_A and D_B
             self.set_requires_grad([self.net_D_A, self.net_D_B], True)
             self.optimizer_D.zero_grad()
@@ -227,4 +231,5 @@ class ConditionalCycleGANModel(BaseModel):
             self.backward_D_B()
             self.optimizer_D.step()
 
-            self.clip_D_grads()
+            if self.opt.gan_loss_type == 'w':
+                self.clip_D_grads()

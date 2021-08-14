@@ -75,9 +75,9 @@ class ConditionalCycleGAN:
         self.writer = SummaryWriter(writer_path)
 
     def print_current_losses(self, epoch, epoch_end, index_batch, num_batches, index_step, losses):
-        message = f'(Epoch: [{epoch} / {epoch_end-1}], Batch: [{index_batch} / {num_batches}], Step: {index_step}\n'
+        message = f'(Epoch: [{epoch} / {epoch_end-1}],\tBatch: [{index_batch} / {num_batches}],\tStep: {index_step}\n'
         for k, v in losses.items():
-            message += f'  {k}: {v:.3f}'
+            message += f'\t{k}: {v:.3f}'
         print(message)
 
     def update_tensorboard(self, losses, index):
