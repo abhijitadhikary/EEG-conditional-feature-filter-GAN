@@ -4,8 +4,8 @@ import numpy as np
 
 class CreateDataset(Dataset):
     def __init__(self, features, labels):
-        self.features = torch.tensor(self.convert(features, -1, 1), dtype=torch.float32)
-        self.labels = torch.tensor(labels, dtype=torch.int64)
+        self.features = torch.tensor(self.convert(features, -1, 1), dtype=torch.float32, requires_grad=True)
+        self.labels = torch.tensor(labels, dtype=torch.int64, requires_grad=False)
         self.num_samples = len(self.features)
         self.num_classes = 8
 
@@ -44,6 +44,7 @@ class CreateDataset(Dataset):
         '''
             for any given index_A, randomly choose another index_B and return the corresponding items
         '''
+        # TODO add better randomisation
         index_B = np.random.randint(self.num_samples)
 
         feature_A, label_A = self.get_conditioned_item(index_A)

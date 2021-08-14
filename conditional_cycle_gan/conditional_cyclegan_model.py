@@ -82,26 +82,31 @@ class ConditionalCycleGANModel(BaseModel):
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
-        self.real_A = input['A' if AtoB else 'B'].to(self.device, dtype=torch.float)
-        self.label_A = input['A_label' if AtoB else 'B_label'].to(self.device, dtype=torch.float)
+        self.real_A = input['A' if AtoB else 'B'].to(self.device)
+        self.label_A = input['A_label' if AtoB else 'B_label'].to(self.device)
 
-        self.real_B = input['B' if AtoB else 'A'].to(self.device, dtype=torch.float)
-        self.label_B = input['B_label' if AtoB else 'A_label'].to(self.device, dtype=torch.float)
+        self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.label_B = input['B_label' if AtoB else 'A_label'].to(self.device)
 
     def cat_con_feature(self, feature, label):
         batch_size, num_channels, height, width = feature.shape
-        feature_con = torch.ones((batch_size, num_channels + self.num_classes, height, width), dtype=torch.float32).to(feature.device)
+        # feature_con = torch.ones((batch_size, num_channels + self.num_classes, height, width), dtype=torch.float32).to(feature.device)
+
+        label_array = torch.ones((batch_size, self.num_classes, height, width), dtype=torch.float32, requires_grad=False).to(feature.device)
 
         for index_batch in range(batch_size):
-            feature_con[index_batch, :num_channels] = feature[index_batch]
             for index in range(self.num_classes):
+                current_label = label[index_batch].item()
                 # TODO add randomness
-                if index == label[index_batch].item():
+                if index == current_label:
                     label_multiplier = 1.0
                 else:
                     label_multiplier = 0.0
-                current_channel = torch.ones((height, width)) * label_multiplier
-                feature_con[index_batch, index+num_channels] = current_channel
+                current_channel = torch.ones((height, width), dtype=torch.float32) * label_multiplier
+                label_array[index_batch, index] = current_channel
+
+        feature_con = torch.cat((feature, label_array), dim=1)
+
         return feature_con
 
     def forward(self):
@@ -211,6 +216,7 @@ class ConditionalCycleGANModel(BaseModel):
                 p.data.clamp_(-0.01, 0.01)
 
     def optimize_parameters(self):
+
         # forward
         self.forward()
 

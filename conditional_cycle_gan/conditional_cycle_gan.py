@@ -107,9 +107,9 @@ class ConditionalCycleGAN:
         num_batches = len(dataloader)
         for index_epoch in range(epoch_start, epoch_end):
 
-            # if index_epoch % 1 == 0:
-            #     print(f'Saving at epoch: {index_epoch}')
-            #     self.model.save_networks(index_epoch)
+            if index_epoch % 2:
+                print(f'Saving at epoch: {index_epoch}')
+                self.model.save_networks(index_epoch)
             # if index_epoch % 1 == 0:
             #     print(f'Loading at epoch: {index_epoch}')
             #     self.model.load_networks(index_epoch)
@@ -139,7 +139,7 @@ class ConditionalCycleGAN:
                 correct_epoch_B += self.model.correct_batch_B
 
                 # ------------------------------------------------------------------------------------------------------
-                if index_batch % 100 == 0:
+                if index_epoch % 2 == 0 and index_batch == 0:
                     num_display = 8
                     mode = 'train'
                     img_grid_real_A = make_grid(self.convert(self.model.real_A[:num_display], 0, 1))
