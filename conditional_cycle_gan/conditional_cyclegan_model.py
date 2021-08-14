@@ -97,9 +97,9 @@ class ConditionalCycleGANModel(BaseModel):
             for index in range(self.num_classes):
                 # TODO add randomness
                 if index == label[index_batch].item():
-                    label_multiplier = 0.9
+                    label_multiplier = 1.0
                 else:
-                    label_multiplier = 0.1
+                    label_multiplier = 0.0
                 current_channel = torch.ones((height, width)) * label_multiplier
                 feature_con[index_batch, index+num_channels] = current_channel
         return feature_con

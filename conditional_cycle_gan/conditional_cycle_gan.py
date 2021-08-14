@@ -83,6 +83,16 @@ class ConditionalCycleGAN:
     def update_tensorboard(self, losses, index):
         self.writer.add_scalars('Loss', losses, index + 1)
 
+    def convert(self, source, min_value=-1, max_value=1):
+        smin = source.min()
+        smax = source.max()
+
+        a = (max_value - min_value) / (smax - smin)
+        b = max_value - a * smax
+        target = (a * source + b)
+
+        return target
+
     def train(self):
         self.create_dirs()
         opt = TrainOptions().parse()
@@ -96,6 +106,13 @@ class ConditionalCycleGAN:
         epoch_end = opt.niter + opt.niter_decay + 1
         num_batches = len(dataloader)
         for index_epoch in range(epoch_start, epoch_end):
+
+            # if index_epoch % 1 == 0:
+            #     print(f'Saving at epoch: {index_epoch}')
+            #     self.model.save_networks(index_epoch)
+            # if index_epoch % 1 == 0:
+            #     print(f'Loading at epoch: {index_epoch}')
+            #     self.model.load_networks(index_epoch)
             epoch_start_time = time.time()
             num_samples_epoch = 0
             correct_epoch_A = 0
@@ -122,26 +139,25 @@ class ConditionalCycleGAN:
                 correct_epoch_B += self.model.correct_batch_B
 
                 # ------------------------------------------------------------------------------------------------------
-                self.model.save_networks(index_step)
-                if index_batch % 1 == 0:
+                if index_batch % 100 == 0:
                     num_display = 8
                     mode = 'train'
-                    img_grid_real_A = make_grid(self.model.real_A[:num_display], normalize=True, range=(0, 1))
-                    img_grid_fake_A = make_grid(self.model.fake_A[:num_display], normalize=True, range=(0, 1))
-                    img_grid_rec_A = make_grid(self.model.rec_A[:num_display], normalize=True, range=(0, 1))
-                    img_grid_idt_A = make_grid(self.model.idt_A[:num_display], normalize=True, range=(0, 1))
+                    img_grid_real_A = make_grid(self.convert(self.model.real_A[:num_display], 0, 1))
+                    img_grid_fake_A = make_grid(self.convert(self.model.fake_A[:num_display], 0, 1))
+                    img_grid_rec_A = make_grid(self.convert(self.model.rec_A[:num_display], 0, 1))
+                    img_grid_idt_A = make_grid(self.convert(self.model.idt_A[:num_display], 0, 1))
 
 
-                    img_grid_real_B = make_grid(self.model.real_B[:num_display], normalize=True, range=(0, 1))
-                    img_grid_fake_B = make_grid(self.model.fake_B[:num_display], normalize=True, range=(0, 1))
-                    img_grid_rec_B = make_grid(self.model.rec_B[:num_display], normalize=True, range=(0, 1))
-                    img_grid_idt_B = make_grid(self.model.idt_B[:num_display], normalize=True, range=(0, 1))
+                    img_grid_real_B = make_grid(self.convert(self.model.real_B[:num_display], 0, 1))
+                    img_grid_fake_B = make_grid(self.convert(self.model.fake_B[:num_display], 0, 1))
+                    img_grid_rec_B = make_grid(self.convert(self.model.rec_B[:num_display], 0, 1))
+                    img_grid_idt_B = make_grid(self.convert(self.model.idt_B[:num_display], 0, 1))
 
                     # combine the grids
-                    img_grid_combined = torch.hstack((
+                    img_grid_combined = torch.cat((
                         img_grid_real_A, img_grid_fake_B, img_grid_rec_A, img_grid_idt_A,
-                        img_grid_real_B, img_grid_fake_B, img_grid_rec_B, img_grid_idt_B,
-                    ))
+                        img_grid_real_B, img_grid_fake_A, img_grid_rec_B, img_grid_idt_B,
+                    ), dim=1)
                     output_path_full = os.path.join(f'{opt.output_path}', f'{index_epoch}_{index_batch}_{mode}.jpg')
                     save_image(img_grid_combined, output_path_full)
                 # ------------------------------------------------------------------------------------------------------
@@ -149,7 +165,7 @@ class ConditionalCycleGAN:
 
                 print(f'   Correct - Batch\t\tA: [{self.model.correct_batch_A} / {num_samples_batch}]\t'
                       f' {(self.model.correct_batch_A/num_samples_batch)*100:.3f} %\t\t'
-                      f'B: [{self.model.correct_batch_A} / {num_samples_batch}]\t'
+                      f'B: [{self.model.correct_batch_B} / {num_samples_batch}]\t'
                       f' {(self.model.correct_batch_B/num_samples_batch)*100:.3f} %')
 
             print(f'\nCorrect - Epoch\t\tA: [{correct_epoch_A} / {num_samples_epoch}]\t'
@@ -157,9 +173,7 @@ class ConditionalCycleGAN:
                   f'B: [{correct_epoch_B} / {num_samples_epoch}]\t'
                   f'{(correct_epoch_B/num_samples_epoch)*100:.3f} %')
 
-            if index_epoch % opt.save_epoch_freq == 0:
-                print(f'Saving at epoch: {index_epoch}')
-                self.model.save_networks(index_epoch)
+
 
             print(f'End of index_epoch {index_epoch} / {opt.niter} \t Time Taken: {time.time() - epoch_start_time} sec')
 
