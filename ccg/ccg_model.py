@@ -232,8 +232,20 @@ class CCGModel:
 
         # D_B loss
         # TODO deal with the mean
-        self.loss_D_B = torch.mean(torch.log(D_B_real) + torch.log(1 - D_B_fake))
-        self.loss_D_A = torch.mean(torch.log(D_A_real_r) + ((torch.log(1 - D_A_fake_r) + torch.log(1 - D_A_real_w)) / 2))
+        # self.loss_D_B = torch.mean(torch.log(D_B_real) + torch.log(1 - D_B_fake))
+        # self.loss_D_B = self.criterion_D(D_B_fake, D_B_real)
+        # self.loss_D_A = torch.mean(torch.log(D_A_real_r) + ((torch.log(1 - D_A_fake_r) + torch.log(1 - D_A_real_w)) / 2))
+
+        self.loss_D_B_real = self.criterion_D(D_B_real, torch.ones_like(D_B_real).cuda() * 1)
+        self.loss_D_B_fake = self.criterion_D(D_B_fake, torch.ones_like(D_B_fake).cuda() * 0)
+        self.loss_D_B = self.loss_D_B_real + self.loss_D_B_fake
+
+        self.loss_D_A_real_r = self.criterion_D(D_A_real_r, torch.ones_like(D_A_real_r).cuda() * 1)
+        self.loss_D_A_fake_r = self.criterion_D(D_A_fake_r, torch.ones_like(D_A_fake_r).cuda() * 0)
+        self.loss_D_A_real_w = self.criterion_D(D_A_real_w, torch.ones_like(D_A_real_w).cuda() * 1)
+
+        self.loss_D_A = self.loss_D_A_real_r + ((self.loss_D_A_fake_r + self.loss_D_A_real_w) / 2)
+
         self.loss_D = self.loss_D_A + self.loss_D_B
         self.loss_D.backward()
         self.optimizer_D.step()
@@ -259,9 +271,16 @@ class CCGModel:
 
         # cycle consistency loss
         # ------------------------------------------------------------------------------------------------------------
-        self.cyc_A = self.criterion_cyc(self.fake_A, self.real_A)
-        self.cyc_B = self.criterion_cyc(self.fake_B, self.real_B)
-        self.cyc = self.cyc_A + self.cyc_B
+        self.loss_cyc_A = self.criterion_cyc(self.fake_A, self.real_A)
+        self.loss_cyc_B = self.criterion_cyc(self.fake_B, self.real_B)
+        self.loss_cyc = self.loss_cyc_A + self.loss_cyc_B
+
+        # identity loss
+        # TODO update identity loss
+        self.idt_A = torch.zeros_like(self.real_A)
+        self.idt_B = torch.zeros_like(self.real_B)
+        self.loss_idt_A = 0
+        self.loss_idt_B = 0
 
         # classifier loss
         # TODO whether to classify both real and fake
@@ -288,8 +307,8 @@ class CCGModel:
         # generator loss
         # ------------------------------------------------------------------------------------------------------------
         # TODO deal with the mean
-        self.loss_G_AtoB = torch.mean(torch.log(D_B_fake) + self.cyc)
-        self.loss_G_BtoA = torch.mean(torch.log(D_A_fake_r) + self.cyc)
+        self.loss_G_AtoB = torch.mean(torch.log(D_B_fake) + self.loss_cyc)
+        self.loss_G_BtoA = torch.mean(torch.log(D_A_fake_r) + self.loss_cyc)
         self.loss_G = self.loss_G_AtoB + self.loss_G_BtoA
         self.loss_G += self.loss_cls
         self.loss_G.backward()

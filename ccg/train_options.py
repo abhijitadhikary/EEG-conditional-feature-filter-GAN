@@ -72,6 +72,7 @@ class TrainOptions():
         self.parser.add_argument('--weight_init_type', type=str, default='xavier', help='network initialization [normal|xavier|kaiming|orthogonal]')
         self.parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
+        self.parser.add_argument('--num_imsave', type=int, default=8, help='how many images to save in the image grid')
         self.parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name_experiment = opt.name_experiment + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
 
     def parse(self):
