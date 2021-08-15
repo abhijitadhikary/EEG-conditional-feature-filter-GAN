@@ -27,7 +27,7 @@ class ConditionalFeatureClassifier():
         self.resume_condition = False
         self.args.save_condition = True
         self.args.checkpoint_mode = 'loss'  # accuracy, loss
-        self.args.split_mode = 'across'
+        self.args.split_mode = 'within'
         # self.get_num_classes()
         self.create_dataloaders()
         self.create_model()

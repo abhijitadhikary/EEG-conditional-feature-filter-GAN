@@ -5,6 +5,7 @@ from conditional_feature_classifier.conditional_feature_classifier import Condit
 from conditional_filter.conditional_filter import ConditionalFilter
 from condition_creation import generate_synthetic_data
 from conditional_cycle_gan import ConditionalCycleGAN
+from ccg import CCG
 
 if __name__ == '__main__':
     # PrepareDataset()
@@ -19,8 +20,12 @@ if __name__ == '__main__':
     # feature_classifier_conditional.run()
 
     # train cyclegan
-    conditional_cycle_gan = ConditionalCycleGAN()
-    conditional_cycle_gan.train()
+    # conditional_cycle_gan = ConditionalCycleGAN()
+    # conditional_cycle_gan.train()
+
+    # ccg
+    ccg = CCG()
+    ccg.train()
 
 
 

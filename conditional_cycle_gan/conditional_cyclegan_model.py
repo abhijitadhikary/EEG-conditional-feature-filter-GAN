@@ -20,7 +20,7 @@ class ConditionalCycleGANModel(BaseModel):
 
         self.num_classes = opt.num_classes
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'cls_A', 'cls_B']
+        self.loss_names = ['D_A', 'G_AtoB', 'cycle_A', 'idt_A', 'D_B', 'G_BtoA', 'cycle_B', 'idt_B', 'cls_A', 'cls_B']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
@@ -144,16 +144,16 @@ class ConditionalCycleGANModel(BaseModel):
 
         # GAN loss D_A(G_A(A))
         D_B_fake = self.net_D_B(self.cat_con_feature(self.fake_B, self.label_B))
-        self.loss_G_B = self.criterionGAN(D_B_fake, True)
+        self.loss_G_AtoB = self.criterionGAN(D_B_fake, True)
         # GAN loss D_B(G_B(B))
         D_A_fake = self.net_D_A(self.cat_con_feature(self.fake_A, self.label_A))
-        self.loss_G_A = self.criterionGAN(D_A_fake, True)
+        self.loss_G_BtoA = self.criterionGAN(D_A_fake, True)
         # Forward cycle loss
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+        self.loss_G = self.loss_G_BtoA + self.loss_G_AtoB + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
 
         # classification loss
         # self.loss_cls_A = self.criterionCls(self.cls_A_real, self.label_A.long()) \
