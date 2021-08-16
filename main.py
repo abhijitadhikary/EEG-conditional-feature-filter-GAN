@@ -7,6 +7,7 @@ from condition_creation import generate_synthetic_data
 from conditional_cycle_gan import ConditionalCycleGAN
 from ccg import CCG
 from stargan import StarGAN
+from stargan_edit import StarGANEdit
 
 if __name__ == '__main__':
     # PrepareDataset()
@@ -28,9 +29,13 @@ if __name__ == '__main__':
     # ccg = CCG()
     # ccg.train()
 
-    # ccg
-    stargan = StarGAN()
-    stargan.train()
+    # stargan
+    # stargan = StarGAN()
+    # stargan.train()
+
+    # stargan edit
+    stargan_edit = StarGANEdit()
+    stargan_edit.train()
 
 
 
