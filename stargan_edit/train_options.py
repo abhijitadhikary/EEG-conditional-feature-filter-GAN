@@ -2,6 +2,7 @@ import argparse
 import os
 from utils import utils
 import torch
+from datetime import datetime
 
 
 class TrainOptions():
@@ -12,9 +13,12 @@ class TrainOptions():
 
     def initialize(self):
         self.initialized = True
-        # paths
+        timestamp = datetime.now().strftime("%d_%b_%Y__%H_%M_%S")
         directory_name = 'stargan_edit'
-        experiment_name = 'baseline'
+        experiment_name = f'baseline_{timestamp}'
+        self.parser.add_argument('--timestamp', type=str, default=f'{timestamp}', help='timestamp of current experiment')
+
+        # paths
         self.parser.add_argument('--name_experiment', type=str, default=f'{experiment_name}', help='experiment name_experiment')
         self.parser.add_argument('--name_directory', type=str, default=f'{directory_name}', help='path to source code directory')
         self.parser.add_argument('--path_dataset', type=str, default=os.path.join('datasets', 'eeg'), help='path to dataset directory')

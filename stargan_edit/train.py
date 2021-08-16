@@ -4,6 +4,7 @@ from stargan_edit.stargan_model import get_model
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from stargan_edit.utils import mkdirs, convert
+import threading
 import torch
 import os
 
@@ -15,6 +16,7 @@ def train(self):
     mkdirs(opt.path_save_image)
     mkdirs(opt.path_checkpoint)
     create_tensorboard(self)
+    start_tensorboard_server(self)
     dataloader_train = get_dataloader(opt, 'train')
     dataloader_val = get_dataloader(opt, 'val')
     self.model = get_model(opt)
@@ -52,13 +54,16 @@ def epoch_runner(self, opt, dataloader, run_mode):
         # calculate logs
         update_loss_batch(self)
         print_logs_batch(self)
-        save_image_grid(self)
-        update_tensorboard(self)
-        self.index_step += 1
-        break
+        if run_mode == 'train':
+            save_image_grid(self)
+            update_tensorboard(self)
+            self.index_step += 1
 
     update_logs_epoch(self)
     print_logs_epoch(self)
+    if run_mode == 'val':
+        save_image_grid(self)
+        update_tensorboard(self)
     reset_epoch_parameters(self)
 
 def reset_epoch_parameters(self):
@@ -69,6 +74,14 @@ def reset_epoch_parameters(self):
 
     for key in self.correct_epoch:
         self.correct_epoch[key] = 0
+
+    for key in self.acc_epoch:
+        self.acc_epoch[key] = 0
+
+    for key in self.confidence_epoch:
+        self.confidence_epoch[key] = 0
+
+
 
 # def remove_all_files(self):
 #     all_files = os.listdir(self.opt.path_checkpoint)
@@ -264,3 +277,13 @@ def save_image_grid(self):
         output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch}_{self.run_mode}.jpg')
         save_image(self.img_grid_combined, output_path_full)
         self.writer.add_image('images', self.img_grid_combined, self.index_epoch)
+
+def start_tensorboard_server(self):
+    # import os
+    # os.system('tensorboard --logdir=' + self.opt.path_tensorboard)
+
+    # from tensorboard import program
+    # tb = program.TensorBoard()
+    # tb.configure(argv=[None, '--logdir', self.opt.path_tensorboard])
+    # url = tb.launch()
+    pass

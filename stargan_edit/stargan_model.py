@@ -292,16 +292,14 @@ class StarGANModelEdit:
             loss_G.backward()
             self.optimizer_G.step()
 
-
         # Logging.
         loss = {}
         # D
-        if run_mode == 'train':
-            loss['D/real_A'] = loss_D_real_A.item()
-            loss['D/real_B'] = loss_D_real_B.item()
-            loss['D/real_B'] = loss_D_real_B.item()
-            loss['D/rec_A'] = loss_D_rec_A.item()
-            loss['D/adv'] = loss_D_adv.item()
+        loss['D/real_A'] = loss_D_real_A.item() if run_mode == 'train' else 0
+        loss['D/real_B'] = loss_D_real_B.item() if run_mode == 'train' else 0
+        loss['D/real_B'] = loss_D_real_B.item() if run_mode == 'train' else 0
+        loss['D/rec_A'] = loss_D_rec_A.item() if run_mode == 'train' else 0
+        loss['D/adv'] = loss_D_adv.item() if run_mode == 'train' else 0
 
         # G
         loss['G/fake_B'] = loss_G_fake_B.item()
@@ -314,9 +312,8 @@ class StarGANModelEdit:
         loss['G/cyc'] = loss_G_cyc.item()
 
         # cls
-        if run_mode == 'train':
-            loss['cls/real_A'] = loss_cls_real_A.item()
-            loss['cls/real_B'] = loss_cls_real_B.item()
+        loss['cls/real_A'] = loss_cls_real_A.item() if run_mode == 'train' else 0
+        loss['cls/real_B'] = loss_cls_real_B.item() if run_mode == 'train' else 0
         loss['cls/fake_B'] = loss_cls_fake_B.item()
         loss['cls/rec_A'] = loss_cls_rec_A.item()
         if run_mode == 'train':
@@ -327,29 +324,26 @@ class StarGANModelEdit:
 
         # correct
         correct = {}
-        if run_mode == 'train':
-            correct['correct/cls_real_A'] = correct_cls_real_A
-            correct['correct/cls_real_B'] = correct_cls_real_B
+        correct['correct/cls_real_A'] = correct_cls_real_A if run_mode == 'train' else 0
+        correct['correct/cls_real_B'] = correct_cls_real_B if run_mode == 'train' else 0
 
         correct['correct/cls_fake_B'] = correct_cls_fake_B
         correct['correct/cls_rec_A'] = correct_cls_rec_A
         # correct['correct/cls_real'] = correct_cls_real_A + correct_cls_real_B
         # correct['correct/cls_fake'] = correct_cls_fake_B + correct_cls_rec_A
-        if run_mode == 'train':
-            correct['correct/total'] = correct_cls_real_A + correct_cls_real_B + correct_cls_fake_B + correct_cls_rec_A
-        else:
-            correct['correct/total'] = correct_cls_fake_B + correct_cls_rec_A
+        correct['correct/total'] = (correct_cls_real_A + correct_cls_real_B + correct_cls_fake_B + correct_cls_rec_A) \
+            if run_mode == 'train' else (correct_cls_fake_B + correct_cls_rec_A)
 
         self.correct = correct
 
         # confidence
         confidence = {}
-        if run_mode == 'train':
-            confidence['conf_D/real_A'] = conf_D_real_A * 100
-            confidence['conf_D/real_B'] = conf_D_real_B * 100
-            confidence['conf_D/fake_B'] = conf_D_fake_B * 100
-            confidence['conf_D/rec_A'] = conf_D_rec_A * 100
-            confidence['conf_D/total_D'] = ((conf_D_real_A + conf_D_real_B + conf_D_fake_B + conf_D_rec_A) / 4)  * 100
+        confidence['conf_D/real_A'] = conf_D_real_A * 100 if run_mode == 'train' else 0
+        confidence['conf_D/real_B'] = conf_D_real_B * 100 if run_mode == 'train' else 0
+        confidence['conf_D/fake_B'] = conf_D_fake_B * 100 if run_mode == 'train' else 0
+        confidence['conf_D/rec_A'] = conf_D_rec_A * 100 if run_mode == 'train' else 0
+        confidence['conf_D/total_D'] = (((conf_D_real_A + conf_D_real_B + conf_D_fake_B + conf_D_rec_A) / 4) * 100) \
+            if run_mode == 'train' else 0
 
         confidence['conf_G/fake_B'] = conf_D_G_fake_B * 100
         confidence['conf_G/rec_A'] = conf_D_G_rec_A * 100
