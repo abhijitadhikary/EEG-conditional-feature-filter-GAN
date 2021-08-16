@@ -13,7 +13,14 @@ class TrainOptions():
 
     def initialize(self):
         self.initialized = True
-        timestamp = datetime.now().strftime("%d_%b_%Y__%H_%M_%S")
+        load_model = True
+        load_epoch = 7
+
+        if load_model:
+            timestamp = '16_Aug_2021__17_53_35'
+        else:
+            timestamp = datetime.now().strftime("%d_%b_%Y__%H_%M_%S")
+
         directory_name = 'stargan_edit'
         experiment_name = f'baseline_{timestamp}'
         self.parser.add_argument('--timestamp', type=str, default=f'{timestamp}', help='timestamp of current experiment')
@@ -61,10 +68,7 @@ class TrainOptions():
         self.parser.add_argument('--lambda_identity', type=float, default=0.5, help='weight for identity loss, only effective if the value is greater than 0')
         self.parser.add_argument('--size_image_pool', type=int, default=50, help='number of generated images to store in image pool')
 
-        # save/load
-        self.parser.add_argument('--load_model', type=bool, default=False, help='Whether to load pretrained model')
-        self.parser.add_argument('--load_epoch', type=int, default=3, help='From which epoch to load model')
-        self.parser.add_argument('--num_keep_best_ckpt', type=int, default=None, help='How many checkpoints to store')
+
 
         self.parser.add_argument('--epoch_start', type=int, default=0, help='start training from which epoch')
 
@@ -86,6 +90,11 @@ class TrainOptions():
         self.parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
         self.parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
         self.parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
+
+        # save/load
+        self.parser.add_argument('--load_model', type=bool, default=load_model, help='Whether to load pretrained model')
+        self.parser.add_argument('--load_epoch', type=int, default=load_epoch, help='From which epoch to load model')
+        self.parser.add_argument('--num_keep_best_ckpt', type=int, default=3, help='How many checkpoints to store')
 
     def parse(self):
         if not self.initialized:
@@ -115,7 +124,7 @@ class TrainOptions():
             opt.name_experiment = opt.name_experiment + suffix
 
         # save to the disk
-        expr_dir = os.path.join(opt.path_checkpoint, opt.name_experiment)
+        expr_dir = os.path.join(opt.path_checkpoint)
         utils.mkdirs(expr_dir)
         file_name = os.path.join(expr_dir, 'opt.txt')
         with open(file_name, 'wt') as opt_file:

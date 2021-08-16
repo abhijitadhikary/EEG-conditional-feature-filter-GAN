@@ -299,7 +299,7 @@ class StarGANModelEdit:
         loss_G_adv = loss_G_fake_B + loss_G_rec_A
         # loss_G_cls = loss_cls_fake_B + loss_cls_rec_A
         loss_G_cls = correct_cls_real_A + correct_cls_real_B + loss_cls_fake_B + loss_cls_rec_A
-        loss_G_cyc = (loss_l1_fake_B + loss_l1_rec_A) * 10
+        loss_G_cyc = (loss_l1_fake_B + loss_l1_rec_A)
         loss_G = loss_G_adv + loss_G_cls + loss_G_cyc
 
         if run_mode == 'train':

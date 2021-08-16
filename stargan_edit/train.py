@@ -83,16 +83,20 @@ def reset_epoch_parameters(self):
 
 
 
-# def remove_all_files(self):
-#     all_files = os.listdir(self.opt.path_checkpoint)
-#     if len(all_files) >= self.opt.num_keep_best_ckpt:
-#         current_full_path = os.path.join(self.opt.path_checkpoint, all_files[0])
-#         os.remove(current_full_path)
+def remove_all_files(self):
+    all_files = os.listdir(self.opt.path_checkpoint)
+    for file in all_files:
+        if 'opt' in file:
+            all_files.remove(file)
+    if all_files is not None and (len(all_files) >= self.opt.num_keep_best_ckpt):
+        current_full_path = os.path.join(self.opt.path_checkpoint, all_files[0])
+        os.remove(current_full_path)
 
 def save_model(self):
-    if self.acc_epoch['acc/total'] > self.acc_best:
-        self.acc_best = self.acc_epoch['acc/total']
+    # if self.acc_epoch['acc/total'] > self.acc_best:
+    #     self.acc_best = self.acc_epoch['acc/total']
 
+        remove_all_files(self)
         save_path = os.path.join(self.opt.path_checkpoint, f'{self.index_epoch+1}.pth')
         save_dict = {'index_epoch': self.index_epoch+1,
                      'index_step': self.index_step,
@@ -266,15 +270,15 @@ def update_tensorboard(self):
         confidence = self.confidence_batch
 
         if self.run_mode == 'train':
-            index = self.index_step
+            index = self.index_step + 1
         else:
-            index = self.index_epoch
+            index = self.index_epoch + 1
     else:
         losses = self.loss_epoch
         correct = self.correct_epoch
         acc = self.acc_epoch
         confidence = self.confidence_epoch
-        index = self.index_epoch
+        index = self.index_epoch + 1
     self.writer.add_scalars(f'Loss/{self.run_mode}', losses, index)
     self.writer.add_scalars(f'Correct/{self.run_mode}', correct, index)
     self.writer.add_scalars(f'Accuracy/{self.run_mode}', acc, index)
@@ -282,20 +286,19 @@ def update_tensorboard(self):
 
 def save_image_grid(self):
     opt = self.opt
-    if self.index_batch == 0:
-        num_display = opt.num_imsave
-        img_grid_real_A = make_grid(convert(self.model.real_A[:num_display], 0, 1))
-        img_grid_fake_A = make_grid(convert(self.model.fake_B[:num_display], 0, 1))
-        img_grid_rec_A = make_grid(convert(self.model.rec_A[:num_display], 0, 1))
-        img_grid_real_B = make_grid(convert(self.model.real_B[:num_display], 0, 1))
+    num_display = opt.num_imsave
+    img_grid_real_A = make_grid(convert(self.model.real_A[:num_display], 0, 1))
+    img_grid_fake_A = make_grid(convert(self.model.fake_B[:num_display], 0, 1))
+    img_grid_rec_A = make_grid(convert(self.model.rec_A[:num_display], 0, 1))
+    img_grid_real_B = make_grid(convert(self.model.real_B[:num_display], 0, 1))
 
-        # combine the grids
-        self.img_grid_combined = torch.cat((
-            img_grid_real_A, img_grid_fake_A, img_grid_rec_A,  img_grid_real_B
-        ), dim=1)
-        output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch}_{self.run_mode}.jpg')
-        save_image(self.img_grid_combined, output_path_full)
-        self.writer.add_image('images', self.img_grid_combined, self.index_epoch)
+    # combine the grids
+    self.img_grid_combined = torch.cat((
+        img_grid_real_A, img_grid_fake_A, img_grid_rec_A,  img_grid_real_B
+    ), dim=1)
+    output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch+1}_{self.run_mode}.jpg')
+    save_image(self.img_grid_combined, output_path_full)
+    self.writer.add_image('images', self.img_grid_combined, self.index_epoch+1)
 
 def start_tensorboard_server(self):
     # import os
