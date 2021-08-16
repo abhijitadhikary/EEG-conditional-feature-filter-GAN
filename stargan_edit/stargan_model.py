@@ -95,10 +95,6 @@ class StarGANModelEdit:
         self.real_B = input['B' if AtoB else 'A'].cuda()
         self.label_B = input['B_label' if AtoB else 'A_label'].cuda()
 
-    def load_model(self, opt):
-        # TODO implement load model
-        pass
-
     def prepare_models(self, run_mode):
         if run_mode == 'train':
             self.net_D.train()

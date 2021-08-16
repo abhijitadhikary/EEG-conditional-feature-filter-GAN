@@ -14,12 +14,13 @@ class TrainOptions():
         self.initialized = True
         # paths
         directory_name = 'stargan_edit'
-        self.parser.add_argument('--name_experiment', type=str, default='baseline', help='experiment name_experiment')
+        experiment_name = 'baseline'
+        self.parser.add_argument('--name_experiment', type=str, default=f'{experiment_name}', help='experiment name_experiment')
         self.parser.add_argument('--name_directory', type=str, default=f'{directory_name}', help='path to source code directory')
         self.parser.add_argument('--path_dataset', type=str, default=os.path.join('datasets', 'eeg'), help='path to dataset directory')
-        self.parser.add_argument('--path_checkpoint', type=str, default=os.path.join(f'directory_name', 'checkpoints'), help='models are saved here')
-        self.parser.add_argument('--path_save_image', type=str, default=os.path.join(f'{directory_name}', 'output'), help='directory to save the images')
-        self.parser.add_argument('--path_tensorboard', type=str, default=os.path.join(f'{directory_name}', 'runs'),  help='directory to save the images')
+        self.parser.add_argument('--path_checkpoint', type=str, default=os.path.join(f'{directory_name}', 'checkpoints', f'{experiment_name}'), help='models are saved here')
+        self.parser.add_argument('--path_save_image', type=str, default=os.path.join(f'{directory_name}', 'output', f'{experiment_name}'), help='directory to save the images')
+        self.parser.add_argument('--path_tensorboard', type=str, default=os.path.join(f'{directory_name}', 'runs', f'{experiment_name}'),  help='directory to save the images')
 
         # which mode to run the model
         self.parser.add_argument('--mode_run', type=str, default='train', help='train, val, test')
@@ -58,7 +59,8 @@ class TrainOptions():
 
         # save/load
         self.parser.add_argument('--load_model', type=bool, default=True, help='Whether to load pretrained model')
-        self.parser.add_argument('--load_epoch', type=int, default=None, help='From which epoch to load model')
+        self.parser.add_argument('--load_epoch', type=int, default=3, help='From which epoch to load model')
+        self.parser.add_argument('--num_keep_best_ckpt', type=int, default=None, help='How many checkpoints to store')
 
         self.parser.add_argument('--epoch_start', type=int, default=0, help='start training from which epoch')
 

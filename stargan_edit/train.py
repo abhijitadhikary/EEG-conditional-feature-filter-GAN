@@ -8,23 +8,27 @@ import torch
 import os
 
 def train(self):
-    self.acc_fake_B_best = -1e9
+    self.acc_best = -1e9
     parser = TrainOptions()
     opt = parser.parse()
     self.opt = opt
+    mkdirs(opt.path_save_image)
+    mkdirs(opt.path_checkpoint)
+    create_tensorboard(self)
     dataloader_train = get_dataloader(opt, 'train')
     dataloader_val = get_dataloader(opt, 'val')
     self.model = get_model(opt)
-    self.model.load_model(opt)
-    create_tensorboard(self)
+    load_model(self)
+    opt = self.opt
 
     self.index_step = 0
     for index_epoch in range(opt.epoch_start, opt.num_epochs):
         self.index_epoch = index_epoch
-        # epoch_runner(self, opt, dataloader_train, 'train')
+        epoch_runner(self, opt, dataloader_train, 'train')
 
         # evaluate model
         epoch_runner(self, opt, dataloader_val, 'val')
+        save_model(self)
 
 def epoch_runner(self, opt, dataloader, run_mode):
     self.num_batches = len(dataloader)
@@ -50,6 +54,7 @@ def epoch_runner(self, opt, dataloader, run_mode):
         update_tensorboard(self)
         save_image_grid(self)
         self.index_step += 1
+        break
 
     update_logs_epoch(self)
     print_logs_epoch(self)
@@ -63,6 +68,60 @@ def reset_epoch_parameters(self):
 
     for key in self.correct_epoch:
         self.correct_epoch[key] = 0
+
+# def remove_all_files(self):
+#     all_files = os.listdir(self.opt.path_checkpoint)
+#     if len(all_files) >= self.opt.num_keep_best_ckpt:
+#         current_full_path = os.path.join(self.opt.path_checkpoint, all_files[0])
+#         os.remove(current_full_path)
+
+def save_model(self):
+    if self.acc_epoch['acc/fake_B'] > self.acc_best and self.opt.load_model:
+    # if self.opt.load_model:
+        self.acc_best = self.acc_epoch['acc/fake_B']
+
+        # remove_all_files(self)
+
+        save_path = os.path.join(self.opt.path_checkpoint, f'{self.index_epoch+1}.pth')
+        save_dict = {'index_epoch': self.index_epoch+1,
+                     'index_step': self.index_step,
+                     'acc_best': self.acc_best,
+                     'opt': self.opt,
+                     'G_state_dict': self.model.net_G.state_dict(),
+                     'G_optim_dict': self.model.optimizer_G.state_dict(),
+                     'D_state_dict': self.model.net_D.state_dict(),
+                     'D_optim_dict': self.model.optimizer_D.state_dict()
+                     }
+
+        torch.save(save_dict, save_path)
+        print(f'*********************** New best model saved at {self.index_epoch+1} ***********************')
+
+def load_model(self):
+
+    load_path = os.path.join(self.opt.path_checkpoint, f'{self.opt.load_epoch}.pth')
+
+    if load_path is not None:
+        if not os.path.exists(load_path):
+            raise FileNotFoundError(f'File {load_path} doesn\'t exist')
+
+        checkpoint = torch.load(load_path)
+
+        self.index_epoch = checkpoint['index_epoch']
+        self.index_step = checkpoint['index_step']
+        self.acc_best = checkpoint['acc_best']
+        self.opt = checkpoint['opt']
+        self.model.net_G.load_state_dict(checkpoint['G_state_dict'])
+        self.model.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
+        self.model.net_D.load_state_dict(checkpoint['D_state_dict'])
+        self.model.optimizer_D.load_state_dict(checkpoint['D_optim_dict'])
+
+        self.opt.epoch_start = self.index_epoch
+
+        print(f'Model successfully loaded from epoch {self.opt.load_epoch}')
+
+
+
+
 
 def print_logs(logs, type, total=0):
     if type == 'loss':
@@ -88,9 +147,9 @@ def print_logs_epoch(self):
     print_logs(self.confidence_epoch, 'confidence')
 
 def print_logs_batch(self):
-    print(f'\n\n{self.run_mode.upper()} ------> Epoch: [{self.index_epoch} / {self.opt.num_epochs}]'
-          f'\t\tBatch: [{self.index_batch} / {self.num_batches}]'
-          f'\t\tStep: {self.index_step}')
+    print(f'\n\n{self.run_mode.upper()} ------> Epoch: [{self.index_epoch+1} / {self.opt.num_epochs}]'
+          f'\t\tBatch: [{self.index_batch+1} / {self.num_batches}]'
+          f'\t\tStep: {self.index_step+1}')
     print_logs(self.loss_batch, 'loss')
     print_logs(self.correct_batch, 'correct', self.batch_size)
     print_logs(self.acc_batch, 'acc')
@@ -194,7 +253,6 @@ def update_tensorboard(self):
 def save_image_grid(self):
     opt = self.opt
     if self.index_batch == 0:
-        mkdirs(opt.path_save_image)
         num_display = opt.num_imsave
         img_grid_real_A = make_grid(convert(self.model.real_A[:num_display], 0, 1))
         img_grid_fake_A = make_grid(convert(self.model.fake_B[:num_display], 0, 1))
