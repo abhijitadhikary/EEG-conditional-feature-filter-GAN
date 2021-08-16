@@ -224,20 +224,22 @@ class StarGANModelEdit:
             self.optimizer_D.zero_grad()
 
             # train for real images for domain A
-            D_real_A, cls_real_A = self.net_D(real_A)
+            # D_real_A, cls_real_A = self.net_D(real_A)
+            D_real_A, _ = self.net_D(real_A)
             label_real = self.get_label(D_real_A, 'real')
             loss_D_real_A = self.criterion_D(D_real_A, label_real)
             conf_D_real_A = torch.mean(loss_D_real_A.detach()).item()
-            loss_cls_real_A = self.criterion_cls(cls_real_A, label_A)
-            correct_cls_real_A = self.get_num_correct(cls_real_A.detach(), label_A.detach())
+            # loss_cls_real_A = self.criterion_cls(cls_real_A, label_A)
+            # correct_cls_real_A = self.get_num_correct(cls_real_A.detach(), label_A.detach())
 
             # train for real images for domain B
             D_real_B, cls_real_B = self.net_D(real_B)
+            D_real_B, _ = self.net_D(real_B)
             label_real = self.get_label(D_real_B, 'real')
             loss_D_real_B = self.criterion_D(D_real_B, label_real)
             conf_D_real_B = torch.mean(loss_D_real_B.detach()).item()
-            loss_cls_real_B = self.criterion_cls(cls_real_B, label_B)
-            correct_cls_real_B = self.get_num_correct(cls_real_B.detach(), label_B.detach())
+            # loss_cls_real_B = self.criterion_cls(cls_real_B, label_B)
+            # correct_cls_real_B = self.get_num_correct(cls_real_B.detach(), label_B.detach())
 
             # train for fake images in domain B
             D_fake_B, _ = self.net_D(fake_B.detach())
@@ -252,7 +254,8 @@ class StarGANModelEdit:
             conf_D_rec_A = torch.mean(loss_D_rec_A.detach()).item()
 
             loss_D_adv = loss_D_real_A + loss_D_real_B + loss_D_fake_B + loss_D_rec_A
-            loss_D_cls = loss_cls_real_A + loss_cls_real_B
+            # loss_D_cls = loss_cls_real_A + loss_cls_real_B
+            loss_D_cls = 0
             loss_D = loss_D_adv + loss_D_cls * 20
             loss_D.backward()
             self.optimizer_D.step()
@@ -262,6 +265,16 @@ class StarGANModelEdit:
         # =================================================================================== #
         if run_mode == 'train':
             self.optimizer_G.zero_grad()
+
+        # train classifier for real A
+        _, cls_real_A = self.net_D(real_A)
+        loss_cls_real_A = self.criterion_cls(cls_real_A, label_A)
+        correct_cls_real_A = self.get_num_correct(cls_real_A.detach(), label_A.detach())
+
+        # train classifier for real B
+        _, cls_real_B = self.net_D(real_B)
+        loss_cls_real_B = self.criterion_cls(cls_real_B, label_B)
+        correct_cls_real_B = self.get_num_correct(cls_real_B.detach(), label_B.detach())
 
         # train for fake images in domain B
         D_G_fake_B, cls_fake_B = self.net_D(fake_B)
@@ -284,7 +297,8 @@ class StarGANModelEdit:
         loss_l1_rec_A = self.criterion_l1(rec_A, real_A)
 
         loss_G_adv = loss_G_fake_B + loss_G_rec_A
-        loss_G_cls = loss_cls_fake_B + loss_cls_rec_A
+        # loss_G_cls = loss_cls_fake_B + loss_cls_rec_A
+        loss_G_cls = correct_cls_real_A + correct_cls_real_B + loss_cls_fake_B + loss_cls_rec_A
         loss_G_cyc = (loss_l1_fake_B + loss_l1_rec_A) * 10
         loss_G = loss_G_adv + loss_G_cls + loss_G_cyc
 
@@ -312,8 +326,8 @@ class StarGANModelEdit:
         loss['G/cyc'] = loss_G_cyc.item()
 
         # cls
-        loss['cls/real_A'] = loss_cls_real_A.item() if run_mode == 'train' else 0
-        loss['cls/real_B'] = loss_cls_real_B.item() if run_mode == 'train' else 0
+        loss['cls/real_A'] = loss_cls_real_A.item()
+        loss['cls/real_B'] = loss_cls_real_B.item()
         loss['cls/fake_B'] = loss_cls_fake_B.item()
         loss['cls/rec_A'] = loss_cls_rec_A.item()
         if run_mode == 'train':
@@ -324,8 +338,8 @@ class StarGANModelEdit:
 
         # correct
         correct = {}
-        correct['correct/cls_real_A'] = correct_cls_real_A if run_mode == 'train' else 0
-        correct['correct/cls_real_B'] = correct_cls_real_B if run_mode == 'train' else 0
+        correct['correct/cls_real_A'] = correct_cls_real_A
+        correct['correct/cls_real_B'] = correct_cls_real_B
 
         correct['correct/cls_fake_B'] = correct_cls_fake_B
         correct['correct/cls_rec_A'] = correct_cls_rec_A

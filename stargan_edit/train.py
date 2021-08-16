@@ -59,8 +59,6 @@ def epoch_runner(self, opt, dataloader, run_mode):
         #     save_image_grid(self)
         #     update_tensorboard(self)
         self.index_step += 1
-        if index_batch == 1:
-            break
 
     update_logs_epoch(self)
     print_logs_epoch(self)
