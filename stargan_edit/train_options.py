@@ -20,7 +20,7 @@ class TrainOptions():
         self.parser.add_argument('--path_dataset', type=str, default=os.path.join('datasets', 'eeg'), help='path to dataset directory')
         self.parser.add_argument('--path_checkpoint', type=str, default=os.path.join(f'{directory_name}', 'checkpoints', f'{experiment_name}'), help='models are saved here')
         self.parser.add_argument('--path_save_image', type=str, default=os.path.join(f'{directory_name}', 'output', f'{experiment_name}'), help='directory to save the images')
-        self.parser.add_argument('--path_tensorboard', type=str, default=os.path.join(f'{directory_name}', 'runs', f'{experiment_name}'),  help='directory to save the images')
+        self.parser.add_argument('--path_tensorboard', type=str, default=os.path.join(f'{directory_name}', 'runs'), help='directory to save the images')
 
         # which mode to run the model
         self.parser.add_argument('--mode_run', type=str, default='train', help='train, val, test')
@@ -58,7 +58,7 @@ class TrainOptions():
         self.parser.add_argument('--size_image_pool', type=int, default=50, help='number of generated images to store in image pool')
 
         # save/load
-        self.parser.add_argument('--load_model', type=bool, default=True, help='Whether to load pretrained model')
+        self.parser.add_argument('--load_model', type=bool, default=False, help='Whether to load pretrained model')
         self.parser.add_argument('--load_epoch', type=int, default=3, help='From which epoch to load model')
         self.parser.add_argument('--num_keep_best_ckpt', type=int, default=None, help='How many checkpoints to store')
 

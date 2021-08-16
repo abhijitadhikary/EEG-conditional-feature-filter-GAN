@@ -29,6 +29,7 @@ def train(self):
         # evaluate model
         epoch_runner(self, opt, dataloader_val, 'val')
         save_model(self)
+    self.writer.close()
 
 def epoch_runner(self, opt, dataloader, run_mode):
     self.num_batches = len(dataloader)
@@ -51,8 +52,8 @@ def epoch_runner(self, opt, dataloader, run_mode):
         # calculate logs
         update_loss_batch(self)
         print_logs_batch(self)
-        update_tensorboard(self)
         save_image_grid(self)
+        update_tensorboard(self)
         self.index_step += 1
         break
 
@@ -76,11 +77,8 @@ def reset_epoch_parameters(self):
 #         os.remove(current_full_path)
 
 def save_model(self):
-    if self.acc_epoch['acc/fake_B'] > self.acc_best and self.opt.load_model:
-    # if self.opt.load_model:
+    if self.acc_epoch['acc/fake_B'] > self.acc_best:
         self.acc_best = self.acc_epoch['acc/fake_B']
-
-        # remove_all_files(self)
 
         save_path = os.path.join(self.opt.path_checkpoint, f'{self.index_epoch+1}.pth')
         save_dict = {'index_epoch': self.index_epoch+1,
@@ -97,27 +95,27 @@ def save_model(self):
         print(f'*********************** New best model saved at {self.index_epoch+1} ***********************')
 
 def load_model(self):
+    if self.opt.load_model:
+        load_path = os.path.join(self.opt.path_checkpoint, f'{self.opt.load_epoch}.pth')
 
-    load_path = os.path.join(self.opt.path_checkpoint, f'{self.opt.load_epoch}.pth')
+        if load_path is not None:
+            if not os.path.exists(load_path):
+                raise FileNotFoundError(f'File {load_path} doesn\'t exist')
 
-    if load_path is not None:
-        if not os.path.exists(load_path):
-            raise FileNotFoundError(f'File {load_path} doesn\'t exist')
+            checkpoint = torch.load(load_path)
 
-        checkpoint = torch.load(load_path)
+            self.index_epoch = checkpoint['index_epoch']
+            self.index_step = checkpoint['index_step']
+            self.acc_best = checkpoint['acc_best']
+            self.opt = checkpoint['opt']
+            self.model.net_G.load_state_dict(checkpoint['G_state_dict'])
+            self.model.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
+            self.model.net_D.load_state_dict(checkpoint['D_state_dict'])
+            self.model.optimizer_D.load_state_dict(checkpoint['D_optim_dict'])
 
-        self.index_epoch = checkpoint['index_epoch']
-        self.index_step = checkpoint['index_step']
-        self.acc_best = checkpoint['acc_best']
-        self.opt = checkpoint['opt']
-        self.model.net_G.load_state_dict(checkpoint['G_state_dict'])
-        self.model.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
-        self.model.net_D.load_state_dict(checkpoint['D_state_dict'])
-        self.model.optimizer_D.load_state_dict(checkpoint['D_optim_dict'])
+            self.opt.epoch_start = self.index_epoch
 
-        self.opt.epoch_start = self.index_epoch
-
-        print(f'Model successfully loaded from epoch {self.opt.load_epoch}')
+            print(f'Model successfully loaded from epoch {self.opt.load_epoch}')
 
 
 
@@ -260,8 +258,9 @@ def save_image_grid(self):
         img_grid_real_B = make_grid(convert(self.model.real_B[:num_display], 0, 1))
 
         # combine the grids
-        img_grid_combined = torch.cat((
+        self.img_grid_combined = torch.cat((
             img_grid_real_A, img_grid_fake_A, img_grid_rec_A,  img_grid_real_B
         ), dim=1)
-        output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch}_{self.index_batch}_{self.run_mode}.jpg')
-        save_image(img_grid_combined, output_path_full)
+        output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch}_{self.run_mode}.jpg')
+        save_image(self.img_grid_combined, output_path_full)
+        self.writer.add_image('images', self.img_grid_combined, self.index_epoch)
