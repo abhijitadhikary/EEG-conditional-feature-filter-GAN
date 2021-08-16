@@ -4,6 +4,7 @@ from stargan_edit.stargan_model import get_model
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from stargan_edit.utils import mkdirs, convert
+from tqdm import tqdm
 import threading
 import torch
 import os
@@ -38,7 +39,7 @@ def epoch_runner(self, opt, dataloader, run_mode):
     self.run_mode = run_mode
     self.total = 0
     # train
-    for index_batch, batch in enumerate(dataloader):
+    for index_batch, batch in tqdm(enumerate(dataloader), leave=False, total=len(dataloader)):
         self.index_batch = index_batch
         # put models to train or eval mode
         self.model.prepare_models(run_mode)
@@ -53,17 +54,18 @@ def epoch_runner(self, opt, dataloader, run_mode):
 
         # calculate logs
         update_loss_batch(self)
-        print_logs_batch(self)
-        if run_mode == 'train':
-            save_image_grid(self)
-            update_tensorboard(self)
-            self.index_step += 1
+        # print_logs_batch(self)
+        # if run_mode == 'train':
+        #     save_image_grid(self)
+        #     update_tensorboard(self)
+        self.index_step += 1
+        if index_batch == 1:
+            break
 
     update_logs_epoch(self)
     print_logs_epoch(self)
-    if run_mode == 'val':
-        save_image_grid(self)
-        update_tensorboard(self)
+    save_image_grid(self)
+    update_tensorboard(self)
     reset_epoch_parameters(self)
 
 def reset_epoch_parameters(self):
@@ -90,8 +92,8 @@ def reset_epoch_parameters(self):
 #         os.remove(current_full_path)
 
 def save_model(self):
-    if self.acc_epoch['acc/fake_B'] > self.acc_best:
-        self.acc_best = self.acc_epoch['acc/fake_B']
+    if self.acc_epoch['acc/total'] > self.acc_best:
+        self.acc_best = self.acc_epoch['acc/total']
 
         save_path = os.path.join(self.opt.path_checkpoint, f'{self.index_epoch+1}.pth')
         save_dict = {'index_epoch': self.index_epoch+1,
@@ -137,12 +139,18 @@ def load_model(self):
 def print_logs(logs, type, total=0):
     if type == 'loss':
         for key, value in logs.items():
+            if (value < 1e-9) and (value > -1e-9):
+                continue
             print(f'{key}: {value:.4f}', end='\t\t')
     elif type == 'acc' or type == 'confidence':
         for key, value in logs.items():
+            if (value < 1e-9) and (value > -1e-9):
+                continue
             print(f'{key}: {value:.2f} %', end='\t\t')
     elif type == 'correct':
         for key, value in logs.items():
+            if (value < 1e-9) and (value > -1e-9):
+                continue
             total_temp = total
             if 'total' in key:
                 total_temp = total * 4
@@ -171,8 +179,11 @@ def update_logs_epoch(self):
     for key in self.loss_epoch:
         total = self.total
         if 'total' in key:
-            total = total * 4
-        self.loss_epoch[key] /= total
+            if self.run_mode == 'train':
+                total = total * 4
+            else:
+                total = total * 2
+        # self.loss_epoch[key] /= total
 
     # confidence
     for key in self.confidence_epoch:
@@ -190,7 +201,10 @@ def update_logs_epoch(self):
     for key_c, key_a in zip(self.correct_epoch, self.acc_epoch):
         total = self.total
         if 'total' in key_a:
-            total = total * 4
+            if self.run_mode == 'train':
+                total = total * 4
+            else:
+                total = total * 2
         self.acc_epoch[key_a] = (self.correct_epoch[key_c] / total) * 100
 
 def update_loss_batch(self):
@@ -246,16 +260,23 @@ def create_tensorboard(self):
     self.writer = SummaryWriter(writer_path)
 
 def update_tensorboard(self):
-    losses = self.loss_batch
-    correct = self.correct_batch
-    acc = self.acc_batch
-    confidence = self.confidence_batch
+    update_mode = 'epoch'
+    if update_mode == 'batch':
+        losses = self.loss_batch
+        correct = self.correct_batch
+        acc = self.acc_batch
+        confidence = self.confidence_batch
 
-    if self.run_mode == 'train':
-        index = self.index_step
+        if self.run_mode == 'train':
+            index = self.index_step
+        else:
+            index = self.index_epoch
     else:
+        losses = self.loss_epoch
+        correct = self.correct_epoch
+        acc = self.acc_epoch
+        confidence = self.confidence_epoch
         index = self.index_epoch
-
     self.writer.add_scalars(f'Loss/{self.run_mode}', losses, index)
     self.writer.add_scalars(f'Correct/{self.run_mode}', correct, index)
     self.writer.add_scalars(f'Accuracy/{self.run_mode}', acc, index)
