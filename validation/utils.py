@@ -105,7 +105,7 @@ def format_time(seconds):
     f = ''
     i = 1
     if days > 0:
-        f += str(days) + 'D'
+        f += str(days) + 'net_D'
         i += 1
     if hours > 0 and i <= 2:
         f += str(hours) + 'h'

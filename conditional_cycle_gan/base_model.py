@@ -71,7 +71,7 @@ class BaseModel():
                 visual_ret[name] = getattr(self, name)
         return visual_ret
 
-    # return traning losses/errors. train.py will print out these errors as debugging information
+    # return traning logs/errors. train.py will print out these errors as debugging information
     def get_current_losses(self):
         errors_ret = OrderedDict()
         for name in self.loss_names:

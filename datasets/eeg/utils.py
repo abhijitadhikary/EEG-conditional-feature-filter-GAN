@@ -109,7 +109,7 @@ def load_data(data_file):
 def reformatInput(data, labels, indices):
     """
     Receives the the indices for train and test datasets.
-    Outputs the train, validation, and test data and label datasets.
+    Outputs the train, validation, and test data and target datasets.
     """
 
     trainIndices = indices[0][len(indices[1]):]

@@ -11,15 +11,15 @@ class Pix2PixModel(BaseModel):
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.is_train
-        # specify the training losses you want to print out. The program will call base_model.get_current_losses
+        # specify the training logs you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
         if self.isTrain:
-            self.model_names = ['G', 'D']
+            self.model_names = ['net_G', 'net_D']
         else:  # during test time, only load Gs
-            self.model_names = ['G']
+            self.model_names = ['net_G']
         # load/define networks
         self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf,
                                       opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
@@ -72,12 +72,12 @@ class Pix2PixModel(BaseModel):
         self.loss_D.backward()
 
     def backward_G(self):
-        # First, G(A) should fake the discriminator
+        # First, net_G(A) should fake the discriminator
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
 
-        # Second, G(A) = B
+        # Second, net_G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_A
 
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
@@ -86,13 +86,13 @@ class Pix2PixModel(BaseModel):
 
     def optimize_parameters(self):
         self.forward()
-        # update D
+        # update net_D
         self.set_requires_grad(self.netD, True)
         self.optimizer_D.zero_grad()
         self.backward_D()
         self.optimizer_D.step()
 
-        # update G
+        # update net_G
         self.set_requires_grad(self.netD, False)
         self.optimizer_G.zero_grad()
         self.backward_G()

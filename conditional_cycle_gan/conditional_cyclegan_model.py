@@ -19,7 +19,7 @@ class ConditionalCycleGANModel(BaseModel):
         # self.acc_epoch_B = np.NINF
 
         self.num_classes = opt.num_classes
-        # specify the training losses you want to print out. The program will call base_model.get_current_losses
+        # specify the training logs you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['D_A', 'G_AtoB', 'cycle_A', 'idt_A', 'D_B', 'G_BtoA', 'cycle_B', 'idt_B', 'cls_A', 'cls_B']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
@@ -37,7 +37,7 @@ class ConditionalCycleGANModel(BaseModel):
 
         # load/define networks
         # The naming conversion is different from those used in the paper
-        # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+        # Code (paper): G_A (net_G), G_B (F), D_A (D_Y), D_B (D_X)
         use_sigmoid = True if opt.gan_loss_type == 'mse' else False
         self.net_G_AtoB = networks.define_G(opt.input_nc, opt.output_nc,
                                             opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type,

@@ -56,7 +56,7 @@ data_test = sio.loadmat(os.path.join(dataset_path, 'uci_eeg_images_test_within.m
 # data
 X_train = np.transpose(data_train['data'], (0, 3, 2, 1)).astype(np.float32)
 X_test = np.transpose(data_test['data'], (0, 3, 2, 1)).astype(np.float32)
-# label
+# target
 label = f'label_{args.feature}'
 y_train = data_train[label].astype(np.int32)
 y_train = y_train.reshape(np.shape(y_train)[0])

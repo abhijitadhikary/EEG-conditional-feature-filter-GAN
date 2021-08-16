@@ -14,7 +14,7 @@ class TestModel(BaseModel):
         assert(not opt.is_train)
         BaseModel.initialize(self, opt)
 
-        # specify the training losses you want to print out. The program will call base_model.get_current_losses
+        # specify the training logs you want to print out. The program will call base_model.get_current_losses
         self.loss_names = []
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         self.visual_names = ['real_A', 'fake_B']

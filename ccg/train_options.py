@@ -30,8 +30,8 @@ class TrainOptions():
         self.parser.add_argument('--model_name_G', type=str, default='resnet_9blocks', help='name of generator')
         self.parser.add_argument('--model_name_cls', type=str, default='baseline', help='which classifier to use')
         self.parser.add_argument('--loss_name_D', type=str, default='mse', help='| wgan, mse, bce| which loss to use for generator')
-        self.parser.add_argument('--activation_D', type=str, default='none', help='sigmoid | tanh | None - Which activation function to use on the last layer of D')
-        self.parser.add_argument('--activation_G', type=str, default='none', help='sigmoid | tanh | None - Which activation function to use on the last layer of D')
+        self.parser.add_argument('--activation_D', type=str, default='none', help='sigmoid | tanh | None - Which activation function to use on the last layer of net_D')
+        self.parser.add_argument('--activation_G', type=str, default='none', help='sigmoid | tanh | None - Which activation function to use on the last layer of net_D')
         # self.parser.add_argument('--internal_cond_D', type=bool, default=False, help='whether to insert condition in the middle of the discriminator')
 
         # key hyperparameters

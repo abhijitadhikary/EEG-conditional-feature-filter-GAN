@@ -142,7 +142,7 @@ class CCGModel:
         elif opt.loss_name_D == 'bce':
             loss_D = nn.BCELoss()
         else:
-            raise NotImplementedError('Invalid D loss')
+            raise NotImplementedError('Invalid net_D loss')
         return loss_D
 
     def set_input(self, input):

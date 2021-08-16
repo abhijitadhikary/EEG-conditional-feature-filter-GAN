@@ -155,7 +155,7 @@ class ConditionalFilter():
 
     def save_model(self, loss_D_cls, loss_D_adv, loss_G):
         '''
-            need to update this to accommodate D loss
+            need to update this to accommodate net_D loss
         '''
 
         if loss_G < self.args.loss_G_best and self.args.save_condition:

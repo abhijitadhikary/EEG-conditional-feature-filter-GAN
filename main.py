@@ -6,6 +6,7 @@ from conditional_filter.conditional_filter import ConditionalFilter
 from condition_creation import generate_synthetic_data
 from conditional_cycle_gan import ConditionalCycleGAN
 from ccg import CCG
+from stargan import StarGAN
 
 if __name__ == '__main__':
     # PrepareDataset()
@@ -23,9 +24,13 @@ if __name__ == '__main__':
     # conditional_cycle_gan = ConditionalCycleGAN()
     # conditional_cycle_gan.train()
 
+    # # ccg
+    # ccg = CCG()
+    # ccg.train()
+
     # ccg
-    ccg = CCG()
-    ccg.train()
+    stargan = StarGAN()
+    stargan.train()
 
 
 

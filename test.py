@@ -162,7 +162,7 @@ if __name__ == '__main__':
         alcoholism_preds_disguised.append(predict)
         test_fake_alc_correct += np.sum((predict == target_alcoholism.long()).data.cpu().numpy())
 
-        print('disease label')
+        print('disease target')
         print(target_alcoholism)
         print('disease fake')
         print (predict)

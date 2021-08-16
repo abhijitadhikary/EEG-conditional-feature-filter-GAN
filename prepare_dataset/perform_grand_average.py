@@ -67,7 +67,7 @@ class PerformGrandAverage():
                         # average across subjects
                         new = np.mean([item[k] for item in candidate_list[j:j + step]], axis=0)
                         dummy.append(new)
-                        # label the dunmmy identity
+                        # target the dunmmy identity
                         dummy_label_disease.append(i // label_stimulus_range)
                         dummy_label_stimulus.append(i % label_stimulus_range)
 

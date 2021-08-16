@@ -132,7 +132,7 @@ def define_C(output_nc, num_classes, ndf, init_type='normal', gpu_ids=[]):
 
 # Defines the GAN loss which uses either LSGAN or the regular GAN.
 # When LSGAN is used, it is basically same as MSELoss,
-# but it abstracts away the need to create the target label tensor
+# but it abstracts away the need to create the target target tensor
 # that has the same size as the input
 class GANLoss(nn.Module):
     def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0):

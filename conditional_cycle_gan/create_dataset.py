@@ -9,14 +9,14 @@ class CreateDataset(Dataset):
         self.num_samples = len(self.features)
         self.num_classes = 8
 
-    # def cat_con_feature(self, feature, label):
+    # def cat_con_feature(self, feature, target):
     #     num_channels, height, width = feature.shape
     #
     #     feature_con = torch.ones((num_channels + self.num_classes, height, width), dtype=torch.float32)
     #     feature_con[:num_channels] = feature
     #
     #     for index in range(self.num_classes):
-    #         if index == label.item():
+    #         if index == target.item():
     #             label_multiplier = 0.9
     #         else:
     #             label_multiplier = 0.1
@@ -34,8 +34,8 @@ class CreateDataset(Dataset):
     def get_conditioned_item(self, index):
         feature = self.features[index]
         label = self.labels[index]
-        # label_one_hot = self.get_one_hot_label(label)
-        # feature_con = self.cat_con_feature(feature, label)
+        # label_one_hot = self.get_one_hot_label(target)
+        # feature_con = self.cat_con_feature(feature, target)
 
         return feature, label
 

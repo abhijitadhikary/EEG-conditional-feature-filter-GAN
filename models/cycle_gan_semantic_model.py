@@ -14,7 +14,7 @@ class CycleGANSemanticModel(BaseModel):
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
 
-        # specify the training losses you want to print out. The program will call base_model.get_current_losses
+        # specify the training logs you want to print out. The program will call base_model.get_current_losses
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 
                 'D_B', 'G_B', 'cycle_B', 'idt_B', 
                 'sem_AB', 'sem_BA', 'CLS']
@@ -34,7 +34,7 @@ class CycleGANSemanticModel(BaseModel):
 
         # load/define networks
         # The naming conversion is different from those used in the paper
-        # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+        # Code (paper): G_A (net_G), G_B (F), D_A (D_Y), D_B (D_X)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, 
                                         not opt.no_dropout, opt.init_type, self.gpu_ids)
@@ -98,7 +98,7 @@ class CycleGANSemanticModel(BaseModel):
             self.input_A_label_combined = input['A_label_combined' if AtoB else 'B_label_combined'].to(self.device)
             self.input_B_label_combined = input['B_label_combined' if AtoB else 'A_label_combined'].to(self.device)       
 
-        #the label depends on the feature specified by the arg --feature    
+        #the target depends on the feature specified by the arg --feature
         self.input_A_label = getattr(self, 'input_A_label_%s'%opt.feature)
         self.input_B_label = getattr(self, 'input_B_label_%s'%opt.feature)
         

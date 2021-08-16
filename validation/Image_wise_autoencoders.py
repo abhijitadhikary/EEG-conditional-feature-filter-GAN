@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     data = mat['X'].astype('float32')
 
-    label = mat['label'].astype('long')
+    label = mat['target'].astype('long')
 
     data = np.transpose (data, (0, 3 ,2, 1))
     label = np.transpose(label)
@@ -232,10 +232,10 @@ if __name__ == '__main__':
     final_image = np.asarray(final_image).reshape(np.shape(final_image)[0], np.shape(final_image)[2])
     if shard_wight_judge == False:
         sio.savemat( 'Normal_Image-wise_autoencoders_out.mat',
-                {'X': final_image, 'label': label})
+                {'X': final_image, 'target': label})
     else:
         sio.savemat( 'shard_wight_Image-wise_autoencoders_out.mat',
-                {'X': final_image, 'label': label})
+                {'X': final_image, 'target': label})
 
 
 

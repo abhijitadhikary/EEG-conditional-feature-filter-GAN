@@ -60,7 +60,7 @@ def epoch_runner(self, opt, dataloader, run_mode):
         # perform forward pass and optimize parameters
         self.model.optimize_parameters()
 
-        # calculate losses
+        # calculate logs
         update_loss_batch(self)
         print_loss_batch(self)
         update_tensorboard(self)

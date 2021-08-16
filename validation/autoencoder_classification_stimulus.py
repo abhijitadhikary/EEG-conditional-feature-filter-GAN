@@ -172,8 +172,8 @@ if __name__ == '__main__':
             signal = Image_AC(signal)[0]
             
             #print ()
-            #print (label)
-            #print (np.shape(label))
+            #print (target)
+            #print (np.shape(target))
             label = Variable(label).cuda()
             label = label.long().view(label.size(0))
             net.zero_grad()
@@ -196,7 +196,7 @@ if __name__ == '__main__':
             #print (np.shape(signal))
             #print ("asddas")
             #print (np.shape(signal))
-            #print (np.shape(label))
+            #print (np.shape(target))
             signal = Variable(signal).cuda()
             signal = Image_AC(signal)[0]
             label = Variable(label).cuda()
@@ -227,8 +227,8 @@ if __name__ == '__main__':
             _, predict = torch.max(output, 1)
             test_correct += np.sum((predict == label).data.cpu().numpy())
             #print (predict)
-            #print (label)
-            #print (np.sum((predict == label).data.cpu().numpy())/64)
+            #print (target)
+            #print (np.sum((predict == target).data.cpu().numpy())/64)
             #print ("############################################################################")
             #break
             cnt += 1

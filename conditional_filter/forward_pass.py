@@ -79,7 +79,7 @@ def forward_pass(self, dataloader, mode='train'):
         D_cls_conf_fake_epoch += D_cls_conf_fake
         D_adv_conf_fake_epoch += D_adv_conf_fake
 
-        # final D loss
+        # final net_D loss
         loss_D = (loss_D_cls + loss_D_adv) * self.args.loss_D_total_factor
 
         if mode == 'train':
@@ -91,7 +91,7 @@ def forward_pass(self, dataloader, mode='train'):
         out_D_cls_fake = self.model_D_cls(image_fake_rec).squeeze(3)
         out_D_adv_fake = self.model_D_adv(image_fake_rec).reshape(-1, 1)
         self.model_G.zero_grad()
-        loss_G_cls = self.criterion_D_cls(out_D_cls_fake, condition_array_fake)  # need to consider D adv
+        loss_G_cls = self.criterion_D_cls(out_D_cls_fake, condition_array_fake)  # need to consider net_D adv
         loss_G_adv = self.criterion_D_adv(out_D_adv_fake,
                                           targets_real_adv)  # create a new/separate tensor for targets_real_adv
         loss_G_gan = loss_G_cls + loss_G_adv

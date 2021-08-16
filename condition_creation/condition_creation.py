@@ -8,7 +8,7 @@ from condition_creation.utils import convert_time_to_frequency, get_2d_electrode
 def load_data(filename='ucieeg.mat'):
     # load the .mat file
     data_mat = loadmat(filename)
-    # create separate arrays for each feature/label
+    # create separate arrays for each feature/target
     data_time = data_mat['X']
     label_alcoholism = data_mat['y_alcoholic'].reshape(-1)
     label_stimulus = data_mat['y_stimulus'].reshape(-1)

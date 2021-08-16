@@ -136,7 +136,7 @@ class Visualizer():
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
 
-    # losses: dictionary of error labels and values
+    # logs: dictionary of error labels and values
     def plot_current_losses(self, epoch, counter_ratio, opt, losses):
         if not hasattr(self, 'plot_data'):
             self.plot_data = {'X': [], 'Y': [], 'legend': list(losses.keys())}
@@ -152,7 +152,7 @@ class Visualizer():
                 'ylabel': 'loss'},
             win=self.display_id)
 
-    # losses: same format as |losses| of plot_current_losses
+    # logs: same format as |logs| of plot_current_losses
     def print_current_losses(self, epoch, i, losses, t, t_data):
         message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, i, t, t_data)
         for k, v in losses.items():
