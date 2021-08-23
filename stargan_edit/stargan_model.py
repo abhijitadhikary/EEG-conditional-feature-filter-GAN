@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import itertools
 from stargan_edit.model import Discriminator, Generator
+from stargan_edit.networks import define_G
 
 def get_model(opt):
     model = StarGANModelEdit(opt)
@@ -25,6 +26,7 @@ class StarGANModelEdit:
 
         self.define_generators(opt)
         self.define_discriminators(opt)
+        self.define_additional_classsifier(opt)
         self.define_criterions(opt)
         self.define_optimizers(opt)
         self.opt = opt
@@ -33,9 +35,25 @@ class StarGANModelEdit:
 
     def define_generators(self, opt):
 
-        self.net_G = Generator(conv_dim=opt.ngf,
-                               c_dim=opt.num_channels+opt.num_classes,
-                               repeat_num=opt.num_resnet_blocks).cuda()
+        # stargan's resnet
+        # self.net_G = Generator(conv_dim=opt.ngf,
+        #                        c_dim=opt.num_channels+opt.num_classes,
+        #                        repeat_num=opt.num_resnet_blocks).cuda()
+
+        # resnet
+        self.net_G = define_G(input_nc=opt.num_channels + opt.num_classes,
+                              output_nc=opt.num_channels,
+                              ngf=opt.ngf,
+                              which_model_netG='resnet_9blocks',
+                              ).cuda()
+
+
+        # unet dimension mismatch
+        # self.net_G = define_G(input_nc=opt.num_channels+opt.num_classes,
+        #                       output_nc=opt.num_channels,
+        #                       ngf=opt.ngf,
+        #                       which_model_netG='unet_256',
+        #                       ).cuda()
 
     def define_discriminators(self, opt):
         if opt.mode_run == 'train':
@@ -47,6 +65,12 @@ class StarGANModelEdit:
             # TODO implement image pool
             # self.pool_fake_A = ImagePool(opt.size_image_pool)
             # self.pool_fake_B = ImagePool(opt.size_image_pool)
+
+    def define_additional_classsifier(self, opt):
+        self.net_ad_cls = Discriminator(image_size=opt.image_size,
+                                        conv_dim=opt.ndf,
+                                        c_dim=opt.num_classes,
+                                        repeat_num=opt.num_resnet_blocks).cuda()
 
     def define_criterions(self, opt):
         self.criterion_D = self.get_criterion_D(opt)
@@ -60,10 +84,13 @@ class StarGANModelEdit:
                                             betas=(opt.beta1, 0.999))
         self.optimizer_D = torch.optim.Adam(itertools.chain(self.net_D.parameters()),
                                             lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizer_ad_cls = torch.optim.Adam(itertools.chain(self.net_ad_cls.parameters()),
+                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
         self.optimizers = []
         self.optimizers.append(self.optimizer_G)
         self.optimizers.append(self.optimizer_D)
+        self.optimizers.append(self.optimizer_ad_cls)
 
     # set requies_grad=Fasle to avoid computation
     def set_requires_grad(self, nets, requires_grad=False):
@@ -199,9 +226,11 @@ class StarGANModelEdit:
         if run_mode == 'train':
             self.net_D.train()
             self.net_G.train()
+            self.net_ad_cls.train()
         else:
             self.net_D.eval()
             self.net_G.eval()
+            self.net_ad_cls.eval()
 
         # create local copies
         real_A = self.real_A
@@ -221,44 +250,37 @@ class StarGANModelEdit:
         #                               1. Train the discriminator                            #
         # =================================================================================== #
         if run_mode == 'train':
-            self.optimizer_D.zero_grad()
+            for _ in range(self.opt.num_loops_D):
+                self.optimizer_D.zero_grad()
 
-            # train for real images for domain A
-            # D_real_A, cls_real_A = self.net_D(real_A)
-            D_real_A, _ = self.net_D(real_A)
-            label_real = self.get_label(D_real_A, 'real')
-            loss_D_real_A = self.criterion_D(D_real_A, label_real)
-            conf_D_real_A = torch.mean(loss_D_real_A.detach()).item()
-            # loss_cls_real_A = self.criterion_cls(cls_real_A, label_A)
-            # correct_cls_real_A = self.get_num_correct(cls_real_A.detach(), label_A.detach())
+                # train for real images for domain A
+                D_real_A, _ = self.net_D(real_A)
+                label_real = self.get_label(D_real_A, 'real')
+                loss_D_real_A = self.criterion_D(D_real_A, label_real)
+                conf_D_real_A = torch.mean(loss_D_real_A.detach()).item()
 
-            # train for real images for domain B
-            D_real_B, cls_real_B = self.net_D(real_B)
-            D_real_B, _ = self.net_D(real_B)
-            label_real = self.get_label(D_real_B, 'real')
-            loss_D_real_B = self.criterion_D(D_real_B, label_real)
-            conf_D_real_B = torch.mean(loss_D_real_B.detach()).item()
-            # loss_cls_real_B = self.criterion_cls(cls_real_B, label_B)
-            # correct_cls_real_B = self.get_num_correct(cls_real_B.detach(), label_B.detach())
+                # train for real images for domain B
+                D_real_B, _ = self.net_D(real_B)
+                label_real = self.get_label(D_real_B, 'real')
+                loss_D_real_B = self.criterion_D(D_real_B, label_real)
+                conf_D_real_B = torch.mean(loss_D_real_B.detach()).item()
 
-            # train for fake images in domain B
-            D_fake_B, _ = self.net_D(fake_B.detach())
-            label_fake = self.get_label(D_fake_B, 'fake')
-            loss_D_fake_B = self.criterion_D(D_fake_B, label_fake)
-            conf_D_fake_B = torch.mean(loss_D_fake_B.detach()).item()
+                # train for fake images in domain B
+                D_fake_B, _ = self.net_D(fake_B.detach())
+                label_fake = self.get_label(D_fake_B, 'fake')
+                loss_D_fake_B = self.criterion_D(D_fake_B, label_fake)
+                conf_D_fake_B = torch.mean(loss_D_fake_B.detach()).item()
 
-            # train for reconstructed images in domain A
-            D_rec_A, cls_rec_A = self.net_D(rec_A.detach())
-            label_fake = self.get_label(D_rec_A, 'fake')
-            loss_D_rec_A = self.criterion_D(D_rec_A, label_fake)
-            conf_D_rec_A = torch.mean(loss_D_rec_A.detach()).item()
+                # train for reconstructed images in domain A
+                D_rec_A, cls_rec_A = self.net_D(rec_A.detach())
+                label_fake = self.get_label(D_rec_A, 'fake')
+                loss_D_rec_A = self.criterion_D(D_rec_A, label_fake)
+                conf_D_rec_A = torch.mean(loss_D_rec_A.detach()).item()
 
-            loss_D_adv = loss_D_real_A + loss_D_real_B + loss_D_fake_B + loss_D_rec_A
-            # loss_D_cls = loss_cls_real_A + loss_cls_real_B
-            loss_D_cls = 0
-            loss_D = loss_D_adv + loss_D_cls * 20
-            loss_D.backward()
-            self.optimizer_D.step()
+                loss_D_adv = loss_D_real_A + loss_D_real_B + loss_D_fake_B * 20 + loss_D_rec_A
+                loss_D = loss_D_adv * 20
+                loss_D.backward()
+                self.optimizer_D.step()
 
         # =================================================================================== #
         #                               2. Train the generator                                #
@@ -293,20 +315,58 @@ class StarGANModelEdit:
         correct_cls_rec_A = self.get_num_correct(cls_rec_A.detach(), label_A.detach())
 
         # l1 losses
-        loss_l1_fake_B = self.criterion_l1(fake_B, real_B)
-        loss_l1_rec_A = self.criterion_l1(rec_A, real_A)
+        # loss_l1_fake_B = self.criterion_l1(fake_B, real_B)
+        loss_l1_rec_A = self.criterion_l1(rec_A, real_A) * self.opt.lambda_cyc
 
-        loss_G_adv = loss_G_fake_B + loss_G_rec_A
+        loss_G_adv = loss_G_fake_B * 20 + loss_G_rec_A
         # loss_G_cls = loss_cls_fake_B + loss_cls_rec_A
-        loss_G_cls = correct_cls_real_A + correct_cls_real_B + loss_cls_fake_B + loss_cls_rec_A
-        loss_G_cyc = (loss_l1_fake_B + loss_l1_rec_A)
+        loss_G_cls_real = (correct_cls_real_A + correct_cls_real_B) * self.opt.lambda_cls_real
+        loss_G_cls_fake = (loss_cls_fake_B + loss_cls_rec_A) * self.opt.lambda_cls_fake
+        loss_G_cls = loss_G_cls_real + loss_G_cls_fake
+        loss_G_cyc = loss_l1_rec_A # loss_l1_fake_B + loss_l1_rec_A
         loss_G = loss_G_adv + loss_G_cls + loss_G_cyc
 
         if run_mode == 'train':
             loss_G.backward()
             self.optimizer_G.step()
 
-        # Logging.
+        # =================================================================================== #
+        #                            3. Train Additional Classifier                           #
+        # =================================================================================== #
+        if run_mode == 'train':
+            self.optimizer_ad_cls.zero_grad()
+
+        # train additional classifier for real A
+        _, ad_cls_real_A = self.net_ad_cls(real_A.detach())
+        loss_ad_cls_real_A = self.criterion_cls(ad_cls_real_A, label_A)
+        correct_ad_cls_real_A = self.get_num_correct(ad_cls_real_A.detach(), label_A.detach())
+
+        # train additional classifier for fake images in domain B
+        with torch.no_grad():
+            self.net_ad_cls.eval()
+            _, ad_cls_fake_B = self.net_ad_cls(fake_B.detach())
+        loss_ad_cls_fake_B = self.criterion_cls(ad_cls_fake_B, label_B)
+        correct_ad_cls_fake_B = self.get_num_correct(ad_cls_fake_B.detach(), label_B.detach())
+
+        # train additional classifier for reconstructed images in domain A
+        with torch.no_grad():
+            self.net_ad_cls.eval()
+            _, ad_cls_rec_A = self.net_ad_cls(rec_A.detach())
+        loss_ad_cls_rec_A = self.criterion_cls(ad_cls_rec_A, label_A)
+        correct_ad_cls_rec_A = self.get_num_correct(ad_cls_rec_A.detach(), label_A.detach())
+
+        loss_ad_cls = loss_ad_cls_real_A
+
+        if run_mode == 'train':
+            self.net_ad_cls.train()
+            loss_ad_cls.backward()
+            self.optimizer_ad_cls.step()
+
+
+        # =================================================================================== #
+        #                                      Logging                                        #
+        # =================================================================================== #
+
         loss = {}
         # D
         loss['D/real_A'] = loss_D_real_A.item() if run_mode == 'train' else 0
@@ -321,7 +381,7 @@ class StarGANModelEdit:
         loss['G/adv'] = loss_G_adv.item()
 
         # cyc
-        loss['G/l1_fake_B'] = loss_l1_fake_B.item()
+        # loss['G/l1_fake_B'] = loss_l1_fake_B.item()
         loss['G/l1_rec_A'] = loss_l1_rec_A.item()
         loss['G/cyc'] = loss_G_cyc.item()
 
@@ -330,6 +390,12 @@ class StarGANModelEdit:
         loss['cls/real_B'] = loss_cls_real_B.item()
         loss['cls/fake_B'] = loss_cls_fake_B.item()
         loss['cls/rec_A'] = loss_cls_rec_A.item()
+
+        # ad cls
+        loss['ad_cls/real_A'] = loss_ad_cls_real_A.item()
+        loss['ad_cls/fake_B'] = loss_ad_cls_fake_B.item()
+        loss['ad_cls/rec_A'] = loss_ad_cls_rec_A.item()
+
         if run_mode == 'train':
             loss['cls/total_cls'] = loss_cls_real_A.item() + loss_cls_real_B.item() + loss_cls_fake_B.item() + loss_cls_rec_A.item()
         else:
@@ -348,14 +414,18 @@ class StarGANModelEdit:
         correct['correct/total'] = (correct_cls_real_A + correct_cls_real_B + correct_cls_fake_B + correct_cls_rec_A) \
             if run_mode == 'train' else (correct_cls_fake_B + correct_cls_rec_A)
 
+        correct['correct/ad_cls_real_A'] = correct_ad_cls_real_A
+        correct['correct/ad_cls_fake_B'] = correct_ad_cls_fake_B
+        correct['correct/ad_cls_rec_A'] = correct_ad_cls_rec_A
+
         self.correct = correct
 
         # confidence
         confidence = {}
-        confidence['conf_D/real_A'] = conf_D_real_A * 100 if run_mode == 'train' else 0
-        confidence['conf_D/real_B'] = conf_D_real_B * 100 if run_mode == 'train' else 0
-        confidence['conf_D/fake_B'] = conf_D_fake_B * 100 if run_mode == 'train' else 0
-        confidence['conf_D/rec_A'] = conf_D_rec_A * 100 if run_mode == 'train' else 0
+        confidence['conf_D/real_A'] = conf_D_real_A if run_mode == 'train' else -1
+        confidence['conf_D/real_B'] = conf_D_real_B if run_mode == 'train' else -1
+        confidence['conf_D/fake_B'] = conf_D_fake_B if run_mode == 'train' else -1
+        confidence['conf_D/rec_A'] = conf_D_rec_A if run_mode == 'train' else -1
         confidence['conf_D/total_D'] = (((conf_D_real_A + conf_D_real_B + conf_D_fake_B + conf_D_rec_A) / 4) * 100) \
             if run_mode == 'train' else 0
 

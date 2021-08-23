@@ -82,7 +82,7 @@ def print_network(net):
     print('Total number of parameters: %d' % num_params)
 
 
-def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, init_type='normal',
+def define_G(input_nc, output_nc, ngf, which_model_netG, norm='instance', use_dropout=False, init_type='normal',
              gpu_ids=[], activation='none'):
     netG = None
     norm_layer = get_norm_layer(norm_type=norm)
@@ -93,9 +93,9 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
     elif which_model_netG == 'resnet_6blocks':
         netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, activation=activation)
     elif which_model_netG == 'unet_128':
-        netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, activation=activation)
     elif which_model_netG == 'unet_256':
-        netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, activation=activation)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     print(netG)
@@ -246,8 +246,11 @@ class ResnetGenerator(nn.Module):
 
         self.model = nn.Sequential(*model)
 
-    def forward(self, input):
-        return self.model(input)
+    def forward(self, x, c):
+        c = c.view(c.size(0), c.size(1), 1, 1)
+        c = c.repeat(1, 1, x.size(2), x.size(3))
+        x = torch.cat([x, c], dim=1)
+        return self.model(x)
 
 
 # Define a resnet block
@@ -299,9 +302,11 @@ class ResnetBlock(nn.Module):
 # at the bottleneck
 class UnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, num_downs, ngf=64,
-                 norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 norm_layer=nn.BatchNorm2d, use_dropout=False, activation=None):
         super(UnetGenerator, self).__init__()
-
+        self.activation = activation
+        self.sigmoid = nn.Sigmoid()
+        self.tahn = nn.Tanh()
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,
                                              innermost=True)
@@ -318,8 +323,17 @@ class UnetGenerator(nn.Module):
 
         self.model = unet_block
 
-    def forward(self, input):
-        return self.model(input)
+    def forward(self, x, c):
+        c = c.view(c.size(0), c.size(1), 1, 1)
+        c = c.repeat(1, 1, x.size(2), x.size(3))
+        x = torch.cat([x, c], dim=1)
+        x = self.model(x)
+
+        if self.activation == 'sigmoid':
+            x = self.sigmoid(x)
+        elif self.activation == 'tanh':
+            x = self.tahn(x)
+        return x
 
 
 # Defines the submodule with skip connection.
@@ -329,6 +343,7 @@ class UnetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
         super(UnetSkipConnectionBlock, self).__init__()
+        self.num_chanels = 3
         self.outermost = outermost
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -336,8 +351,13 @@ class UnetSkipConnectionBlock(nn.Module):
             use_bias = norm_layer == nn.InstanceNorm2d
         if input_nc is None:
             input_nc = outer_nc
-        downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4,
-                             stride=2, padding=1, bias=use_bias)
+
+        if outermost:
+            downconv = nn.Conv2d(input_nc, self.num_chanels, kernel_size=4,
+                                 stride=2, padding=1, bias=use_bias)
+        else:
+            downconv = nn.Conv2d(input_nc, input_nc, kernel_size=4,
+                                 stride=2, padding=1, bias=use_bias)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)

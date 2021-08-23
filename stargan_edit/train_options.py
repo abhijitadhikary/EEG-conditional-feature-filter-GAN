@@ -13,11 +13,12 @@ class TrainOptions():
 
     def initialize(self):
         self.initialized = True
-        load_model = True
-        load_epoch = 7
+
+        load_model = False
+        load_epoch = 10
 
         if load_model:
-            timestamp = '16_Aug_2021__17_53_35'
+            timestamp = '23_Aug_2021__22_54_39'
         else:
             timestamp = datetime.now().strftime("%d_%b_%Y__%H_%M_%S")
 
@@ -47,9 +48,9 @@ class TrainOptions():
         # self.parser.add_argument('--internal_cond_D', type=bool, default=False, help='whether to insert condition in the middle of the discriminator')
 
         # key hyperparameters
-        self.parser.add_argument('--batch_size', type=int, default=256, help='batch size')
+        self.parser.add_argument('--batch_size', type=int, default=128, help='batch size')
         self.parser.add_argument('--num_epochs', type=int, default=200, help='Total number of epochs to train')
-        self.parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
+        self.parser.add_argument('--lr', type=float, default=0.00001, help='initial learning rate for adam')
         self.parser.add_argument('--ngf', type=int, default=64, help='number of filters in the first generator layer')
         self.parser.add_argument('--ndf', type=int, default=64, help='number of filters in the first discriminator layer')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
@@ -63,8 +64,9 @@ class TrainOptions():
         self.parser.add_argument('--num_resnet_blocks', default=3, type=int, help='number of resnet blocks')
 
         # loss multipliers
-        self.parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
-        self.parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
+        self.parser.add_argument('--lambda_cyc', type=float, default=20.0, help='weight for cycle loss (A -> B -> A)')
+        self.parser.add_argument('--lambda_cls_real', type=float, default=10.0, help='weight for classifier loss (for real samples)')
+        self.parser.add_argument('--lambda_cls_fake', type=float, default=5.0, help='weight for classifier loss (for fake samples)')
         self.parser.add_argument('--lambda_identity', type=float, default=0.5, help='weight for identity loss, only effective if the value is greater than 0')
         self.parser.add_argument('--size_image_pool', type=int, default=50, help='number of generated images to store in image pool')
 
@@ -86,10 +88,10 @@ class TrainOptions():
         self.parser.add_argument('--num_imsave', type=int, default=8, help='how many images to save in the image grid')
         self.parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name_experiment = opt.name_experiment + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
 
-        # stargan
-        self.parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
-        self.parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
-        self.parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
+        # # stargan
+        # self.parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
+        # self.parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
+        # self.parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
 
         # save/load
         self.parser.add_argument('--load_model', type=bool, default=load_model, help='Whether to load pretrained model')

@@ -105,7 +105,9 @@ def save_model(self):
                      'G_state_dict': self.model.net_G.state_dict(),
                      'G_optim_dict': self.model.optimizer_G.state_dict(),
                      'D_state_dict': self.model.net_D.state_dict(),
-                     'D_optim_dict': self.model.optimizer_D.state_dict()
+                     'D_optim_dict': self.model.optimizer_D.state_dict(),
+                     'ad_cls_state_dict': self.model.net_ad_cls.state_dict(),
+                     'ad_cls_optim_dict': self.model.optimizer_ad_cls.state_dict(),
                      }
 
         torch.save(save_dict, save_path)
@@ -113,6 +115,7 @@ def save_model(self):
 
 def load_model(self):
     if self.opt.load_model:
+        load_epoch = self.opt.load_epoch
         load_path = os.path.join(self.opt.path_checkpoint, f'{self.opt.load_epoch}.pth')
 
         if load_path is not None:
@@ -129,14 +132,13 @@ def load_model(self):
             self.model.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
             self.model.net_D.load_state_dict(checkpoint['D_state_dict'])
             self.model.optimizer_D.load_state_dict(checkpoint['D_optim_dict'])
+            self.model.net_ad_cls.load_state_dict(checkpoint['ad_cls_state_dict'])
+            self.model.optimizer_ad_cls.load_state_dict(checkpoint['ad_cls_optim_dict'])
 
             self.opt.epoch_start = self.index_epoch
+            self.opt.load_epoch = load_epoch
 
             print(f'Model successfully loaded from epoch {self.opt.load_epoch}')
-
-
-
-
 
 def print_logs(logs, type, total=0):
     if type == 'loss':
@@ -144,14 +146,19 @@ def print_logs(logs, type, total=0):
             if (value < 1e-9) and (value > -1e-9):
                 continue
             print(f'{key}: {value:.4f}', end='\t\t')
-    elif type == 'acc' or type == 'confidence':
+    elif type == 'acc':
         for key, value in logs.items():
             if (value < 1e-9) and (value > -1e-9):
                 continue
             print(f'{key}: {value:.2f} %', end='\t\t')
+    elif type == 'confidence':
+        for key, value in logs.items():
+            if (value < 1e-9):
+                continue
+            print(f'{key}: {value*100:.2f} %', end='\t\t')
     elif type == 'correct':
         for key, value in logs.items():
-            if (value < 1e-9) and (value > -1e-9):
+            if (value < 1e-9):
                 continue
             total_temp = total
             if 'total' in key:
@@ -185,7 +192,7 @@ def update_logs_epoch(self):
                 total = total * 4
             else:
                 total = total * 2
-        # self.loss_epoch[key] /= total
+        self.loss_epoch[key] /= total
 
     # confidence
     for key in self.confidence_epoch:
@@ -194,11 +201,14 @@ def update_logs_epoch(self):
 
     # acc
     self.acc_epoch = {}
-    self.acc_epoch['acc/real_A'] = 0
-    self.acc_epoch['acc/real_B'] = 0
-    self.acc_epoch['acc/fake_B'] = 0
-    self.acc_epoch['acc/rec_A'] = 0
-    self.acc_epoch['acc/total'] = 0
+    self.acc_epoch['acc/cls_real_A'] = 0
+    self.acc_epoch['acc/cls_real_B'] = 0
+    self.acc_epoch['acc/cls_fake_B'] = 0
+    self.acc_epoch['acc/cls_rec_A'] = 0
+    self.acc_epoch['acc/cls_total'] = 0
+    self.acc_epoch['acc/ad_cls_real_A'] = 0
+    self.acc_epoch['acc/ad_cls_fake_B'] = 0
+    self.acc_epoch['acc/ad_cls_rec_A'] = 0
 
     for key_c, key_a in zip(self.correct_epoch, self.acc_epoch):
         total = self.total
@@ -237,19 +247,24 @@ def update_loss_batch(self):
     self.confidence_batch = self.model.confidence.copy()
     if self.index_step == 0:
         self.confidence_epoch = self.confidence_batch.copy()
-        for key in self.confidence_epoch:
-            self.confidence_epoch[key] *= self.batch_size
+        # for key in self.confidence_epoch:
+        #     self.confidence_epoch[key] *= self.batch_size
     else:
         for key in self.confidence_batch:
-            self.confidence_epoch[key] = self.confidence_epoch[key] + (self.confidence_batch[key] * self.batch_size)
+            self.confidence_epoch[key] += self.confidence_batch[key]
+            # self.confidence_epoch[key] = self.confidence_epoch[key] + (self.confidence_batch[key] * self.batch_size)
 
     # accuracy
     self.acc_batch = {}
-    self.acc_batch['acc/real_A'] = 0
-    self.acc_batch['acc/real_B'] = 0
-    self.acc_batch['acc/fake_B'] = 0
-    self.acc_batch['acc/rec_A'] = 0
-    self.acc_batch['acc/total'] = 0
+    self.acc_batch['acc/cls_real_A'] = 0
+    self.acc_batch['acc/cls_real_B'] = 0
+    self.acc_batch['acc/cls_fake_B'] = 0
+    self.acc_batch['acc/cls_rec_A'] = 0
+    self.acc_batch['acc/cls_total'] = 0
+
+    self.acc_batch['acc/ad_cls_real_A'] = 0
+    self.acc_batch['acc/ad_cls_fake_B'] = 0
+    self.acc_batch['acc/ad_cls_rec_A'] = 0
 
     for key_c, key_a in zip(self.correct_batch, self.acc_batch):
         batch_size = self.batch_size
@@ -298,7 +313,7 @@ def save_image_grid(self):
     ), dim=1)
     output_path_full = os.path.join(f'{opt.path_save_image}', f'{self.index_epoch+1}_{self.run_mode}.jpg')
     save_image(self.img_grid_combined, output_path_full)
-    self.writer.add_image('images', self.img_grid_combined, self.index_epoch+1)
+    self.writer.add_image(f'images/{self.run_mode}', self.img_grid_combined, self.index_epoch+1)
 
 def start_tensorboard_server(self):
     # import os
