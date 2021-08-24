@@ -104,7 +104,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='instance', use_dr
     return init_net(netG, init_type, gpu_ids)
 
 
-def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='batch', activation='none', init_type='normal', gpu_ids=[], internal_cond_D=False, num_classes=None):
+def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='instance', activation='none', init_type='normal', gpu_ids=[], internal_cond_D=False, num_classes=None):
     netD = None
     norm_layer = get_norm_layer(norm_type=norm)
 
@@ -125,13 +125,13 @@ def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='batch', activa
     return init_net(netD, init_type, gpu_ids)
 
 
-def define_C(output_nc, num_classes, ndf, init_type='normal', gpu_ids=[], activation='none'):
+def define_C(classifier_name=None, output_nc=None, num_classes=None, ndf=None, init_type='normal', gpu_ids=[], activation='none'):
     # if output_nc == 3:
     #    netC = get_model('DTN', num_cls=10)
     # else:
     #    Exception('classifier only implemented for 32x32x3 images')
     # netC = Classifier(output_nc, num_classes, ndf)
-    netC = create_model_classifier('ResNet34', num_classes, activation=activation)
+    netC = create_model_classifier(classifier_name, num_classes, activation=activation)
     return init_net(netC, init_type, gpu_ids)
 
 def create_model_classifier(classifier_name, num_classes, activation='none'):

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import itertools
 from stargan_edit.model import Discriminator, Generator
-from stargan_edit.networks import define_G
+from stargan_edit.networks import define_G, define_C, define_D
 
 def get_model(opt):
     model = StarGANModelEdit(opt)
@@ -26,6 +26,7 @@ class StarGANModelEdit:
 
         self.define_generators(opt)
         self.define_discriminators(opt)
+        self.define_classsifier(opt)
         self.define_additional_classsifier(opt)
         self.define_criterions(opt)
         self.define_optimizers(opt)
@@ -57,20 +58,33 @@ class StarGANModelEdit:
 
     def define_discriminators(self, opt):
         if opt.mode_run == 'train':
-            self.net_D = Discriminator(image_size=opt.image_size,
-                                       conv_dim=opt.ndf,
-                                       c_dim=opt.num_classes,
-                                       repeat_num=opt.num_resnet_blocks).cuda()
+            self.net_D = define_D(input_nc=opt.num_channels,
+                                  ndf=opt.ngf,
+                                  which_model_netD='basic').cuda()
+            # self.net_D = Discriminator(image_size=opt.image_size,
+            #                            conv_dim=opt.ndf,
+            #                            c_dim=opt.num_classes,
+            #                            repeat_num=opt.num_resnet_blocks).cuda()
 
             # TODO implement image pool
             # self.pool_fake_A = ImagePool(opt.size_image_pool)
             # self.pool_fake_B = ImagePool(opt.size_image_pool)
 
+    def define_classsifier(self, opt):
+        self.net_cls = define_C(classifier_name='ResNet34',
+                                num_classes=opt.num_classes).cuda()
+        # self.net_cls = Discriminator(image_size=opt.image_size,
+        #                                 conv_dim=opt.ndf,
+        #                                 c_dim=opt.num_classes,
+        #                                 repeat_num=opt.num_resnet_blocks).cuda()
+
     def define_additional_classsifier(self, opt):
-        self.net_ad_cls = Discriminator(image_size=opt.image_size,
-                                        conv_dim=opt.ndf,
-                                        c_dim=opt.num_classes,
-                                        repeat_num=opt.num_resnet_blocks).cuda()
+        self.net_ad_cls = define_C(classifier_name='ResNet34',
+                                   num_classes=opt.num_classes).cuda()
+        # self.net_ad_cls = Discriminator(image_size=opt.image_size,
+        #                                 conv_dim=opt.ndf,
+        #                                 c_dim=opt.num_classes,
+        #                                 repeat_num=opt.num_resnet_blocks).cuda()
 
     def define_criterions(self, opt):
         self.criterion_D = self.get_criterion_D(opt)
@@ -84,13 +98,16 @@ class StarGANModelEdit:
                                             betas=(opt.beta1, 0.999))
         self.optimizer_D = torch.optim.Adam(itertools.chain(self.net_D.parameters()),
                                             lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizer_cls = torch.optim.Adam(itertools.chain(self.net_cls.parameters()),
+                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
         self.optimizer_ad_cls = torch.optim.Adam(itertools.chain(self.net_ad_cls.parameters()),
                                                  lr=opt.lr, betas=(opt.beta1, 0.999))
 
-        self.optimizers = []
-        self.optimizers.append(self.optimizer_G)
-        self.optimizers.append(self.optimizer_D)
-        self.optimizers.append(self.optimizer_ad_cls)
+        # self.optimizers = []
+        # self.optimizers.append(self.optimizer_G)
+        # self.optimizers.append(self.optimizer_D)
+        # self.optimizers.append(self.optimizer_cls)
+        # self.optimizers.append(self.optimizer_ad_cls)
 
     # set requies_grad=Fasle to avoid computation
     def set_requires_grad(self, nets, requires_grad=False):
@@ -226,10 +243,12 @@ class StarGANModelEdit:
         if run_mode == 'train':
             self.net_D.train()
             self.net_G.train()
+            self.net_cls.train()
             self.net_ad_cls.train()
         else:
             self.net_D.eval()
             self.net_G.eval()
+            self.net_cls.eval()
             self.net_ad_cls.eval()
 
         # create local copies
@@ -254,25 +273,25 @@ class StarGANModelEdit:
                 self.optimizer_D.zero_grad()
 
                 # train for real images for domain A
-                D_real_A, _ = self.net_D(real_A)
+                D_real_A = self.net_D(real_A.detach())
                 label_real = self.get_label(D_real_A, 'real')
                 loss_D_real_A = self.criterion_D(D_real_A, label_real)
                 conf_D_real_A = torch.mean(loss_D_real_A.detach()).item()
 
                 # train for real images for domain B
-                D_real_B, _ = self.net_D(real_B)
+                D_real_B = self.net_D(real_B.detach())
                 label_real = self.get_label(D_real_B, 'real')
                 loss_D_real_B = self.criterion_D(D_real_B, label_real)
                 conf_D_real_B = torch.mean(loss_D_real_B.detach()).item()
 
                 # train for fake images in domain B
-                D_fake_B, _ = self.net_D(fake_B.detach())
+                D_fake_B = self.net_D(fake_B.detach())
                 label_fake = self.get_label(D_fake_B, 'fake')
                 loss_D_fake_B = self.criterion_D(D_fake_B, label_fake)
                 conf_D_fake_B = torch.mean(loss_D_fake_B.detach()).item()
 
                 # train for reconstructed images in domain A
-                D_rec_A, cls_rec_A = self.net_D(rec_A.detach())
+                D_rec_A = self.net_D(rec_A.detach())
                 label_fake = self.get_label(D_rec_A, 'fake')
                 loss_D_rec_A = self.criterion_D(D_rec_A, label_fake)
                 conf_D_rec_A = torch.mean(loss_D_rec_A.detach()).item()
@@ -283,36 +302,42 @@ class StarGANModelEdit:
                 self.optimizer_D.step()
 
         # =================================================================================== #
-        #                               2. Train the generator                                #
+        #                      2. Train the generator and classifier                          #
         # =================================================================================== #
         if run_mode == 'train':
             self.optimizer_G.zero_grad()
+            self.optimizer_cls.zero_grad()
+        # train for fake images in domain B
+        D_G_fake_B = self.net_D(fake_B)
+        label_real = self.get_label(D_G_fake_B, 'real')
+        loss_G_fake_B = self.criterion_D(D_G_fake_B, label_real)
+        conf_D_G_fake_B = torch.mean(loss_G_fake_B.detach()).item()
+
+        # train for reconstructed images in domain A
+        D_G_rec_A = self.net_D(rec_A)
+        label_real = self.get_label(D_G_rec_A, 'real')
+        loss_G_rec_A = self.criterion_D(D_G_rec_A, label_real)
+        conf_D_G_rec_A = torch.mean(loss_G_rec_A.detach()).item()
+
+        # train classifier for fake_B
+        cls_fake_B = self.net_cls(fake_B)
+        loss_cls_fake_B = self.criterion_cls(cls_fake_B, label_B)
+        correct_cls_fake_B = self.get_num_correct(cls_fake_B.detach(), label_B.detach())
+
+        # train classifier for rec_A
+        cls_rec_A = self.net_cls(rec_A)
+        loss_cls_rec_A = self.criterion_cls(cls_rec_A, label_A)
+        correct_cls_rec_A = self.get_num_correct(cls_rec_A.detach(), label_A.detach())
 
         # train classifier for real A
-        _, cls_real_A = self.net_D(real_A)
+        cls_real_A = self.net_cls(real_A)
         loss_cls_real_A = self.criterion_cls(cls_real_A, label_A)
         correct_cls_real_A = self.get_num_correct(cls_real_A.detach(), label_A.detach())
 
         # train classifier for real B
-        _, cls_real_B = self.net_D(real_B)
+        cls_real_B = self.net_cls(real_B)
         loss_cls_real_B = self.criterion_cls(cls_real_B, label_B)
         correct_cls_real_B = self.get_num_correct(cls_real_B.detach(), label_B.detach())
-
-        # train for fake images in domain B
-        D_G_fake_B, cls_fake_B = self.net_D(fake_B)
-        label_real = self.get_label(D_G_fake_B, 'real')
-        loss_G_fake_B = self.criterion_D(D_G_fake_B, label_real)
-        loss_cls_fake_B = self.criterion_cls(cls_fake_B, label_B)
-        conf_D_G_fake_B = torch.mean(loss_G_fake_B.detach()).item()
-        correct_cls_fake_B = self.get_num_correct(cls_fake_B.detach(), label_B.detach())
-
-        # train for reconstructed images in domain A
-        D_G_rec_A, cls_rec_A = self.net_D(rec_A)
-        label_real = self.get_label(D_G_rec_A, 'real')
-        loss_G_rec_A = self.criterion_D(D_G_rec_A, label_real)
-        loss_cls_rec_A = self.criterion_cls(cls_rec_A, label_A)
-        conf_D_G_rec_A = torch.mean(loss_G_rec_A.detach()).item()
-        correct_cls_rec_A = self.get_num_correct(cls_rec_A.detach(), label_A.detach())
 
         # l1 losses
         # loss_l1_fake_B = self.criterion_l1(fake_B, real_B)
@@ -329,6 +354,7 @@ class StarGANModelEdit:
         if run_mode == 'train':
             loss_G.backward()
             self.optimizer_G.step()
+            self.optimizer_cls.step()
 
         # =================================================================================== #
         #                            3. Train Additional Classifier                           #
@@ -337,23 +363,23 @@ class StarGANModelEdit:
             self.optimizer_ad_cls.zero_grad()
 
         # train additional classifier for real A
-        _, ad_cls_real_A = self.net_ad_cls(real_A.detach())
+        ad_cls_real_A = self.net_ad_cls(real_A.detach())
         loss_ad_cls_real_A = self.criterion_cls(ad_cls_real_A, label_A)
         correct_ad_cls_real_A = self.get_num_correct(ad_cls_real_A.detach(), label_A.detach())
 
         # train additional classifier for fake images in domain B
         with torch.no_grad():
             self.net_ad_cls.eval()
-            _, ad_cls_fake_B = self.net_ad_cls(fake_B.detach())
-        loss_ad_cls_fake_B = self.criterion_cls(ad_cls_fake_B, label_B)
-        correct_ad_cls_fake_B = self.get_num_correct(ad_cls_fake_B.detach(), label_B.detach())
+            ad_cls_fake_B = self.net_ad_cls(fake_B.detach())
+            loss_ad_cls_fake_B = self.criterion_cls(ad_cls_fake_B.detach(), label_B.detach())
+            correct_ad_cls_fake_B = self.get_num_correct(ad_cls_fake_B.detach(), label_B.detach())
 
         # train additional classifier for reconstructed images in domain A
         with torch.no_grad():
             self.net_ad_cls.eval()
-            _, ad_cls_rec_A = self.net_ad_cls(rec_A.detach())
-        loss_ad_cls_rec_A = self.criterion_cls(ad_cls_rec_A, label_A)
-        correct_ad_cls_rec_A = self.get_num_correct(ad_cls_rec_A.detach(), label_A.detach())
+            ad_cls_rec_A = self.net_ad_cls(rec_A.detach())
+            loss_ad_cls_rec_A = self.criterion_cls(ad_cls_rec_A.detach(), label_A.detach())
+            correct_ad_cls_rec_A = self.get_num_correct(ad_cls_rec_A.detach(), label_A.detach())
 
         loss_ad_cls = loss_ad_cls_real_A
 

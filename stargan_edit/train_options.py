@@ -48,7 +48,7 @@ class TrainOptions():
         # self.parser.add_argument('--internal_cond_D', type=bool, default=False, help='whether to insert condition in the middle of the discriminator')
 
         # key hyperparameters
-        self.parser.add_argument('--batch_size', type=int, default=128, help='batch size')
+        self.parser.add_argument('--batch_size', type=int, default=64, help='batch size')
         self.parser.add_argument('--num_epochs', type=int, default=200, help='Total number of epochs to train')
         self.parser.add_argument('--lr', type=float, default=0.00001, help='initial learning rate for adam')
         self.parser.add_argument('--ngf', type=int, default=64, help='number of filters in the first generator layer')
