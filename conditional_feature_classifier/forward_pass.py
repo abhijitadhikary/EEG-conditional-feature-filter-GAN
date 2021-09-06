@@ -3,14 +3,19 @@ import numpy as np
 import torch.nn as nn
 from sklearn.metrics import recall_score
 
-def forward_pass(self):
-    # train
+def forward_pass(self, dataloader):
+    # # train
+    # if self.args.mode == 'train':
+    #     self.model.train()
+    #     dataloader = self.dataloader_train
+    # else:
+    #     self.model.eval()
+    #     dataloader = self.dataloader_test
+
     if self.args.mode == 'train':
         self.model.train()
-        dataloader = self.dataloader_train
     else:
         self.model.eval()
-        dataloader = self.dataloader_test
 
     loss_epoch = 0
     correct_epoch = 0
@@ -63,7 +68,7 @@ def forward_pass(self):
     loss_epoch /= num_samples_epoch
 
     print(
-        f'Epoch:\t[{self.args.index_epoch + 1}/{self.args.num_epochs}]\t{self.args.mode.upper()} Loss:\t{loss_epoch:.3f}\tAccuracy:\t{accuracy_epoch:.3f} %\tCorrect:\t[{correct_epoch}/{num_samples}]',
+        f'{self.args.mode}\tEpoch:\t[{self.args.index_epoch + 1}/{self.args.num_epochs}]\t{self.args.mode.upper()} Loss:\t{loss_epoch:.3f}\tAccuracy:\t{accuracy_epoch:.3f} %\tCorrect:\t[{correct_epoch}/{num_samples}]',
         end='')
     print()
     # if self.args.feature == 'alcoholism' and self.args.mode == 'val':
@@ -72,4 +77,5 @@ def forward_pass(self):
     #     print(f'\tSensitivity:\t{sensitivity_epoch:.3f} %\tSpecificity:\t{specificity_epoch:.3f} %')
     # else:
     #     print()
-    self.save_model(accuracy_epoch, loss_epoch)
+    if self.args.mode == 'val':
+        self.save_model(accuracy_epoch, loss_epoch)

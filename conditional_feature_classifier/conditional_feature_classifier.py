@@ -337,9 +337,11 @@ class ConditionalFeatureClassifier():
     def run(self):
         for index_epoch in range(self.args.start_epoch, self.args.num_epochs):
             self.args.index_epoch = index_epoch
-            for mode in ['train', 'val']:
-                self.args.mode = mode
-                forward_pass(self)
 
+            self.args.mode = 'train'
+            forward_pass(self, self.dataloader_train)
+
+            self.args.mode = 'val'
+            forward_pass(self, self.dataloader_val)
 
 

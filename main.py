@@ -18,8 +18,8 @@ if __name__ == '__main__':
     # generate_synthetic_data(path_dataset=os.path.join('datasets', 'eeg'), load_freq_data=True)
 
     # train conditional feature classifier
-    # feature_classifier_conditional = ConditionalFeatureClassifier()
-    # feature_classifier_conditional.run()
+    feature_classifier_conditional = ConditionalFeatureClassifier()
+    feature_classifier_conditional.run()
 
     # train cyclegan
     # conditional_cycle_gan = ConditionalCycleGAN()
