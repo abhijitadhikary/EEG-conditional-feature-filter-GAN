@@ -23,7 +23,7 @@ class ConditionalFeatureClassifier():
         self.args.accuracy_best = np.NINF
         self.args.loss_best = np.Inf
         self.args.num_keep_best = 5
-        self.resume_epoch = 8
+        self.resume_epoch = 59
         self.resume_condition = False
         self.args.save_condition = True
         self.args.checkpoint_mode = 'loss'  # accuracy, loss
@@ -33,8 +33,8 @@ class ConditionalFeatureClassifier():
         self.create_model()
         self.set_device()
         self.set_model_options()
-        self.load_model()
         self.args.checkpoint_path = os.path.join('.', 'conditional_feature_classifier', 'checkpoints', self.args.feature, self.args.model_name)
+        self.load_model()
         self.create_dirs()
 
     def set_hyperparameters(self):
@@ -318,6 +318,7 @@ class ConditionalFeatureClassifier():
                 print(f'*********************** New best model saved at {self.args.index_epoch + 1} ***********************')
 
     def load_model(self):
+
         if self.resume_condition:
             load_path = os.path.join(self.args.checkpoint_path, f'{self.resume_epoch}.pth')
             if load_path is not None:
@@ -335,6 +336,11 @@ class ConditionalFeatureClassifier():
                 self.args.start_epoch = self.args.index_epoch + 1
 
     def run(self):
+        load_path = os.path.join('stargan_edit', 'additional_classifier_checkpoint.pth')
+        checkpoint = torch.load(load_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optim_state_dict'])
+
         for index_epoch in range(self.args.start_epoch, self.args.num_epochs):
             self.args.index_epoch = index_epoch
 

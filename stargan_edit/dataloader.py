@@ -18,7 +18,7 @@ def get_dataloader(opt, mode_run):
 # random
 class CreateDataset(Dataset):
     def __init__(self, opt, features, labels):
-        features = convert(features, opt.min_value_feature, opt.max_value_feature)
+        # features = convert(features, opt.min_value_feature, opt.max_value_feature)
         self.features = torch.tensor(features, dtype=torch.float32, requires_grad=False)
         self.labels = torch.tensor(labels, dtype=torch.int64, requires_grad=False)
         self.num_samples = len(self.features)

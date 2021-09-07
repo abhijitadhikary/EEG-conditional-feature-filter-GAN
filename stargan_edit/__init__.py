@@ -1,2 +1,1 @@
-from stargan_edit.stargan import StarGANEdit
-
+from stargan_edit.stargan_edit import StarGANEdit

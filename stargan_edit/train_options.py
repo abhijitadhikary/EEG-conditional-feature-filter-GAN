@@ -48,7 +48,7 @@ class TrainOptions():
         # self.parser.add_argument('--internal_cond_D', type=bool, default=False, help='whether to insert condition in the middle of the discriminator')
 
         # key hyperparameters
-        self.parser.add_argument('--batch_size', type=int, default=64, help='batch size')
+        self.parser.add_argument('--batch_size', type=int, default=96, help='batch size')
         self.parser.add_argument('--num_epochs', type=int, default=200, help='Total number of epochs to train')
         self.parser.add_argument('--lr', type=float, default=0.00001, help='initial learning rate for adam')
         self.parser.add_argument('--ngf', type=int, default=64, help='number of filters in the first generator layer')
@@ -87,6 +87,8 @@ class TrainOptions():
         self.parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
         self.parser.add_argument('--num_imsave', type=int, default=8, help='how many images to save in the image grid')
         self.parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name_experiment = opt.name_experiment + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
+        self.parser.add_argument('--momentum', default=0.9, type=int, help='momentum for SGD')
+        self.parser.add_argument('--weight_decay', default=5e-4, type=int, help='weight decay rate for SGD')
 
         # # stargan
         # self.parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')

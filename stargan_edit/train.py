@@ -1,6 +1,6 @@
 from stargan_edit.train_options import TrainOptions
 from stargan_edit.dataloader import get_dataloader
-from stargan_edit.stargan_model import get_model
+from stargan_edit.stargan_edit_model import get_model
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from stargan_edit.utils import mkdirs, convert
@@ -41,11 +41,15 @@ def epoch_runner(self, opt, dataloader, run_mode):
     # train
     for index_batch, batch in tqdm(enumerate(dataloader), leave=False, total=len(dataloader)):
         self.index_batch = index_batch
-        # put models to train or eval mode
-        self.model.prepare_models(run_mode)
 
         # extract features and labels from dataloader
         self.model.set_input(batch)
+
+        # labels_pred = self.model.net_ad_cls(self.model.real_A)
+        # labels_pred = torch.argmax(labels_pred, dim=1)
+        # correct_batch = torch.sum(labels_pred == self.model.label_A).item()
+
+
         self.batch_size = len(self.model.real_A)
         self.total += self.batch_size
 
@@ -59,6 +63,8 @@ def epoch_runner(self, opt, dataloader, run_mode):
         #     save_image_grid(self)
         #     update_tensorboard(self)
         self.index_step += 1
+        # print_logs_batch(self)
+        # break
 
     update_logs_epoch(self)
     print_logs_epoch(self)
@@ -103,11 +109,11 @@ def save_model(self):
                      'acc_best': self.acc_best,
                      'opt': self.opt,
                      'G_state_dict': self.model.net_G.state_dict(),
-                     'G_optim_dict': self.model.optimizer_G.state_dict(),
+                     'G_optimizer_dict': self.model.optimizer_G.state_dict(),
                      'D_state_dict': self.model.net_D.state_dict(),
-                     'D_optim_dict': self.model.optimizer_D.state_dict(),
-                     'ad_cls_state_dict': self.model.net_ad_cls.state_dict(),
-                     'ad_cls_optim_dict': self.model.optimizer_ad_cls.state_dict(),
+                     'D_optimizer_dict': self.model.optimizer_D.state_dict(),
+                     'cls_state_dict': self.model.net_cls.state_dict(),
+                     '\cls_optim_dict': self.model.optimizer_cls.state_dict(),
                      }
 
         torch.save(save_dict, save_path)
@@ -129,11 +135,11 @@ def load_model(self):
             self.acc_best = checkpoint['acc_best']
             self.opt = checkpoint['opt']
             self.model.net_G.load_state_dict(checkpoint['G_state_dict'])
-            self.model.optimizer_G.load_state_dict(checkpoint['G_optim_dict'])
+            self.model.optimizer_G.load_state_dict(checkpoint['G_optimizer_dict'])
             self.model.net_D.load_state_dict(checkpoint['D_state_dict'])
-            self.model.optimizer_D.load_state_dict(checkpoint['D_optim_dict'])
-            self.model.net_ad_cls.load_state_dict(checkpoint['ad_cls_state_dict'])
-            self.model.optimizer_ad_cls.load_state_dict(checkpoint['ad_cls_optim_dict'])
+            self.model.optimizer_D.load_state_dict(checkpoint['D_optimizer_dict'])
+            self.model.net_cls.load_state_dict(checkpoint['cls_state_dict'])
+            self.model.optimizer_cls.load_state_dict(checkpoint['cls_optimizer_dict'])
 
             self.opt.epoch_start = self.index_epoch
             self.opt.load_epoch = load_epoch
@@ -155,7 +161,7 @@ def print_logs(logs, type, total=0):
         for key, value in logs.items():
             if (value < 1e-9):
                 continue
-            print(f'{key}: {value*100:.2f} %', end='\t\t')
+            print(f'{key}: {value:.2f} %', end='\t\t')
     elif type == 'correct':
         for key, value in logs.items():
             if (value < 1e-9):
@@ -187,48 +193,51 @@ def update_logs_epoch(self):
     # loss
     for key in self.loss_epoch:
         total = self.total
-        if 'total' in key:
-            if self.run_mode == 'train':
-                total = total * 4
-            else:
-                total = total * 2
+        # if 'total' in key:
+        #     if self.run_mode == 'train':
+        #         total = total * 4
+        #     else:
+        #         total = total * 2
         self.loss_epoch[key] /= total
 
     # confidence
     for key in self.confidence_epoch:
         total = self.total
         self.confidence_epoch[key] /= total
+        self.confidence_epoch[key] *= 100
 
     # acc
     self.acc_epoch = {}
-    self.acc_epoch['acc/cls_real_A'] = 0
-    self.acc_epoch['acc/cls_real_B'] = 0
+    # self.acc_epoch['acc/cls_real_A'] = 0
+    # self.acc_epoch['acc/cls_real_B'] = 0
     self.acc_epoch['acc/cls_fake_B'] = 0
     self.acc_epoch['acc/cls_rec_A'] = 0
-    self.acc_epoch['acc/cls_total'] = 0
+    # self.acc_epoch['acc/cls_total'] = 0
     self.acc_epoch['acc/ad_cls_real_A'] = 0
     self.acc_epoch['acc/ad_cls_fake_B'] = 0
     self.acc_epoch['acc/ad_cls_rec_A'] = 0
 
     for key_c, key_a in zip(self.correct_epoch, self.acc_epoch):
         total = self.total
-        if 'total' in key_a:
-            if self.run_mode == 'train':
-                total = total * 4
-            else:
-                total = total * 2
+        # if 'total' in key_a:
+        #     if self.run_mode == 'train':
+        #         total = total * 4
+        #     else:
+        #         total = total * 2
         self.acc_epoch[key_a] = (self.correct_epoch[key_c] / total) * 100
 
 def update_loss_batch(self):
     # loss
     self.loss_batch = self.model.loss.copy()
 
+    # add loss to epoch
     if self.index_step == 0:
         self.loss_epoch = self.loss_batch.copy()
     else:
         for key in self.loss_batch:
             self.loss_epoch[key] += self.loss_batch[key]
 
+    # divide loss batch by batch size
     for key in self.loss_batch:
         batch_size = self.batch_size
         if 'total' in key:
@@ -256,11 +265,11 @@ def update_loss_batch(self):
 
     # accuracy
     self.acc_batch = {}
-    self.acc_batch['acc/cls_real_A'] = 0
-    self.acc_batch['acc/cls_real_B'] = 0
+    # self.acc_batch['acc/cls_real_A'] = 0
+    # self.acc_batch['acc/cls_real_B'] = 0
     self.acc_batch['acc/cls_fake_B'] = 0
     self.acc_batch['acc/cls_rec_A'] = 0
-    self.acc_batch['acc/cls_total'] = 0
+    # self.acc_batch['acc/cls_total'] = 0
 
     self.acc_batch['acc/ad_cls_real_A'] = 0
     self.acc_batch['acc/ad_cls_fake_B'] = 0
@@ -268,8 +277,8 @@ def update_loss_batch(self):
 
     for key_c, key_a in zip(self.correct_batch, self.acc_batch):
         batch_size = self.batch_size
-        if 'total' in key_a:
-            batch_size = batch_size * 4
+        # if 'total' in key_a:
+        #     batch_size = batch_size * 4
         self.acc_batch[key_a] = (self.correct_batch[key_c] / batch_size) * 100
 
 def create_tensorboard(self):
